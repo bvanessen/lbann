@@ -31,8 +31,8 @@
 
 namespace lbann {
 
-template <data_layout Layout, El::Device Device>
-class embedding_layer : public Layer {
+template <typename TensorDataType, data_layout Layout, El::Device Device>
+class embedding_layer : public data_type_layer<TensorDataType> {
   static_assert(Layout == data_layout::DATA_PARALLEL,
                 "embedding layer only supports data parallel layout");
   static_assert(Device == El::Device::CPU,
