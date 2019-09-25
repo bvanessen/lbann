@@ -31,23 +31,28 @@
 
 namespace lbann {
 
-template <>
-void embedding_layer<data_layout::DATA_PARALLEL,El::Device::CPU>::setup_matrices(const El::Grid& grid) {
-  Layer::setup_matrices(grid);
-  m_dictionary_gradient = StarMat<El::Device::CPU>(grid);
+template <typename TensorDataType, data_layout T_layout, El::Device Dev>
+void embedding_layer<TensorDataType, T_layout, Dev>::setup_matrices(const El::Grid& grid) {
+  data_type_layer<TensorDataType>::setup_matrices(grid);
+  if(Dev == El::Device::CPU) {
+    if(T_layout == data_layout::DATA_PARALLEL) {
+      // Allocate a StarMat
+      this->m_dictionary_gradient = El::DistMatrix<TensorDataType, El::STAR, El::STAR, El::ELEMENT, El::Device::CPU>(grid);
+    }
+  }
 }
 
-template <>
-void embedding_layer<data_layout::DATA_PARALLEL,El::Device::CPU>::fp_compute() {
+template <typename TensorDataType>
+void fp_compute_impl(embedding_layer<TensorDataType, data_layout::DATA_PARALLEL,El::Device::CPU>& l) {
 
   // Local data
-  const auto& local_dict = dynamic_cast<const CPUMat&>(m_weights[0]->get_values().LockedMatrix());
-  const auto& local_input = dynamic_cast<const CPUMat&>(get_local_prev_activations());
-  auto& local_output = dynamic_cast<CPUMat&>(get_local_activations());
+  const auto& local_dict = dynamic_cast<const El::Matrix<TensorDataType, El::Device::CPU>&>(l.get_weights()[0]->get_values().LockedMatrix());
+  const auto& local_input = dynamic_cast<const El::Matrix<TensorDataType, El::Device::CPU>&>(l.get_local_prev_activations());
+  auto& local_output = dynamic_cast<const El::Matrix<TensorDataType, El::Device::CPU>&>(l.get_local_activations());
   const auto& local_width = local_input.Width();
 
   // Populate output matrix with appropriate columns of dictionary
-  CPUMat dict_v, output_v;
+  El::Matrix<TensorDataType, El::Device::CPU> dict_v, output_v;
   for (El::Int col = 0; col < local_width; ++ col) {
     El::View(output_v, local_output, El::ALL, El::IR(col));
     const El::Int ind = static_cast<El::Int>(std::floor(local_input(0, col)));
@@ -61,28 +66,28 @@ void embedding_layer<data_layout::DATA_PARALLEL,El::Device::CPU>::fp_compute() {
 
 }
 
-template <>
-void embedding_layer<data_layout::DATA_PARALLEL,El::Device::CPU>::bp_compute() {
+template <typename TensorDataType>
+void bp_compute_impl(embedding_layer<TensorDataType, data_layout::DATA_PARALLEL,El::Device::CPU>& l) {
 
   // Embedding layer is not differentiable w.r.t. inputs
-  El::Zero(get_error_signals());
+  El::Zero(l.get_error_signals());
 
   // Nothing to be done if dictionary is not being optimized
-  if (m_weights[0]->get_optimizer() == nullptr) { return; }
-  auto& opt = *m_weights[0]->get_optimizer();
+  if (l.get_weights()[0]->get_optimizer() == nullptr) { return; }
+  auto& opt = *l.get_weights()[0]->get_optimizer();
 
   // Local data
-  const auto& local_input = dynamic_cast<const CPUMat&>(get_local_prev_activations());
-  auto& local_dict_grad = dynamic_cast<CPUMat&>(m_dictionary_gradient.Matrix());
-  const auto& local_output_grad = dynamic_cast<const CPUMat&>(get_local_prev_error_signals());
+  const auto& local_input = dynamic_cast<const El::Matrix<TensorDataType, El::Device::CPU>&>(l.get_local_prev_activations());
+  auto& local_dict_grad = dynamic_cast<const El::Matrix<TensorDataType, El::Device::CPU>&>(l.m_dictionary_gradient.Matrix());
+  const auto& local_output_grad = dynamic_cast<const El::Matrix<TensorDataType, El::Device::CPU>&>(l.get_local_prev_error_signals());
   const auto& local_width = local_input.Width();
-  const auto& c = static_cast<const sgd_execution_context&>(this->m_model->get_execution_context());
+  const auto& c = static_cast<const sgd_execution_context&>(l.m_model->get_execution_context());
   const auto& mini_batch_size = c.get_effective_mini_batch_size();
 
   // Update appropriate columns of gradient w.r.t. dictionary
   // Note: Don't update gradient for padding index
   El::Zero(local_dict_grad);
-  CPUMat dict_grad_v, output_grad_v;
+  El::Matrix<TensorDataType, El::Device::CPU> dict_grad_v, output_grad_v;
   for (El::Int col = 0; col < local_width; ++ col) {
     const El::Int ind = static_cast<El::Int>(std::floor(local_input(0, col)));
     if (0 <= ind
@@ -93,13 +98,24 @@ void embedding_layer<data_layout::DATA_PARALLEL,El::Device::CPU>::bp_compute() {
       El::Axpy(DataType{1}, output_grad_v, dict_grad_v);
     }
   }
-  opt.add_to_gradient(m_dictionary_gradient,
-                      DataType{1} / mini_batch_size,
+  opt.add_to_gradient(l.m_dictionary_gradient,
+                      TensorDataType{1} / mini_batch_size,
                       true);
 
 }
 
+template <typename TensorDataType, data_layout T_layout, El::Device Dev>
+void embedding_layer<TensorDataType, T_layout, Dev>::fp_compute() {
+  fp_compute_impl<TensorDataType>(*this);
+}
+
+template <typename TensorDataType, data_layout T_layout, El::Device Dev>
+void embedding_layer<TensorDataType, T_layout, Dev>::bp_compute() {
+  bp_compute_impl<TensorDataType>(*this);
+}
+
 // Explicit instantiation
-template class embedding_layer<data_layout::DATA_PARALLEL, El::Device::CPU>;
+template class embedding_layer<float, data_layout::DATA_PARALLEL, El::Device::CPU>;
+//template class embedding_layer<double, data_layout::DATA_PARALLEL, El::Device::CPU>;
 
 } // namespace lbann
