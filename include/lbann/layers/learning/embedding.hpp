@@ -27,7 +27,7 @@
 #ifndef LBANN_LAYERS_LEARNING_EMBEDDING_HPP_INCLUDED
 #define LBANN_LAYERS_LEARNING_EMBEDDING_HPP_INCLUDED
 
-#include "lbann/layers/layer.hpp"
+#include "lbann/layers/data_type_layer.hpp"
 #include "lbann/models/model.hpp"
 #include "lbann/utils/memory.hpp"
 
@@ -66,7 +66,7 @@ public:
                   size_t num_embeddings,
                   size_t embedding_dim,
                   El::Int padding_idx=-1)
-    : Layer(comm),
+    : data_type_layer<TensorDataType>(comm),
       m_num_embeddings{num_embeddings},
       m_embedding_dim{embedding_dim},
       m_padding_idx{padding_idx} {}
@@ -107,8 +107,12 @@ private:
   El::Int m_padding_idx;
 
   /** Gradient w.r.t. embedding weights. */
-  StarMat<El::Device::CPU> m_dictionary_gradient;
+  El::DistMatrix<TensorDataType, El::STAR, El::STAR, El::ELEMENT, El::Device::CPU> m_dictionary_gradient;
 
+  template <typename U>
+  friend void fp_compute_impl(embedding_layer<U, Layout, Device>& l);
+  template <typename U>
+  friend void bp_compute_impl(embedding_layer<U, Layout, Device>& l);
 };
 
 // =========================================================
