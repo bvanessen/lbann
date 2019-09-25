@@ -147,7 +147,7 @@ public:
   }
 
   base_convolution_layer& operator=(const base_convolution_layer& other) {
-    Layer::operator=(other);
+    data_type_layer<TensorDataType>::operator=(other);
     m_output_channels = other.m_output_channels;
     m_conv_dims = other.m_conv_dims;
     m_pads = other.m_pads;
@@ -191,7 +191,7 @@ public:
   }
 
   description get_description() const override {
-    auto desc = Layer::get_description();
+    auto desc = data_type_layer<TensorDataType>::get_description();
     std::ostringstream ss;
 
     // Convolution dimensions
@@ -242,7 +242,7 @@ public:
   }
 
   void setup_dims() override {
-    Layer::setup_dims();
+    data_type_layer<TensorDataType>::setup_dims();
     std::ostringstream err;
 
     // Check number of channels and channel groups
@@ -329,7 +329,7 @@ public:
    *  The kernel weights are setup in the convolution and
    *  deconvolution classes. */
   void setup_data() override {
-    Layer::setup_data();
+    data_type_layer<TensorDataType>::setup_data();
 
     // Tensor dimensions
     const auto& input_dims = get_input_dims();
@@ -418,7 +418,7 @@ public:
 
   /// Initialize GPU objects
   void setup_gpu() override {
-    Layer::setup_gpu();
+    data_type_layer<TensorDataType>::setup_gpu();
 #ifndef LBANN_HAS_CUDNN
     LBANN_ERROR("cuDNN not detected");
 #else
