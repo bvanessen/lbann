@@ -27,7 +27,7 @@
 #ifndef LBANN_LAYERS_LEARNING_EMBEDDING_HPP_INCLUDED
 #define LBANN_LAYERS_LEARNING_EMBEDDING_HPP_INCLUDED
 
-#include "lbann/layers/layer.hpp"
+#include "lbann/layers/data_type_layer.hpp"
 
 namespace lbann {
 
@@ -42,7 +42,7 @@ public:
   embedding_layer(lbann_comm* comm,
                   El::Int dictionary_size,
                   El::Int embedding_size)
-    : Layer(comm),
+    : data_type_layer<TensorDataType>(comm),
       m_dictionary_size{dictionary_size},
       m_embedding_size{embedding_size} {
   }
@@ -79,8 +79,12 @@ private:
 
   El::Int m_dictionary_size;
   El::Int m_embedding_size;
-  StarMat<El::Device::CPU> m_dictionary_gradient;
+  El::DistMatrix<TensorDataType, El::STAR, El::STAR, El::ELEMENT, El::Device::CPU> m_dictionary_gradient;
 
+  template <typename U>
+  friend void fp_compute_impl(embedding_layer<U, Layout, Device>& l);
+  template <typename U>
+  friend void bp_compute_impl(embedding_layer<U, Layout, Device>& l);
 };
 
 #ifndef LBANN_EMBEDDING_LAYER_INSTANTIATE
