@@ -38,7 +38,7 @@ namespace {
 /** CPU implementation of evaluation layer forward prop. */
 void fp_cpu(lbann_comm& comm,
             const AbsDistMat& input,
-            DataType& value,
+            TensorDataType& value,
             Al::request& req) {
   const auto& local_input = input.LockedMatrix();
   const auto& local_height = local_input.Height();
@@ -59,10 +59,10 @@ void fp_cpu(lbann_comm& comm,
 /** GPU implementation of evaluation layer forward prop. */
 void fp_gpu(lbann_comm& comm,
             const AbsDistMat& input,
-            DataType& value,
+            TensorDataType& value,
             cuda::event_wrapper& copy_event) {
-  constexpr DataType zero = 0;
-  constexpr DataType one = 1;
+  constexpr TensorDataType zero = 0;
+  constexpr TensorDataType one = 1;
 
   // Local matrix
   const auto& local_input = input.LockedMatrix();
@@ -157,10 +157,10 @@ void abstract_evaluation_layer::setup_dims() {
   transform_layer::setup_dims();
   if (get_input_size() != 1) {
     std::stringstream err;
-    const auto& dims = get_input_dims();
-    err << get_type() << " layer \"" << get_name() << "\" "
+    const auto& dims = this->get_input_dims();
+    err << get_type() << " layer \"" << this->get_name() << "\" "
         << "expects a scalar input, but "
-        << "parent layer \"" << m_parent_layers[0]->get_name() << "\" "
+        << "parent layer \"" << this->get_parent_layers()[0]->get_name() << "\" "
         << "has dimensions of ";
     for (size_t i = 0; i < dims.size(); ++i) {
       err << (i > 0 ? " x " : "") << dims[i];
@@ -180,12 +180,12 @@ void abstract_evaluation_layer::setup_data() {
 void abstract_evaluation_layer::fp_compute() {
   switch (get_device_allocation()) {
   case El::Device::CPU:
-    fp_cpu(*get_comm(), get_prev_activations(), m_value(0, 0),
+    fp_cpu(*get_comm(), this->get_prev_activations(), m_value(0, 0),
            m_allreduce_req);
     break;
 #ifdef LBANN_HAS_GPU
   case El::Device::GPU:
-    fp_gpu(*get_comm(), get_prev_activations(), m_value(0, 0),
+    fp_gpu(*get_comm(), this->get_prev_activations(), m_value(0, 0),
            m_copy_event);
     break;
 #endif // LBANN_HAS_GPU
@@ -194,7 +194,7 @@ void abstract_evaluation_layer::fp_compute() {
 }
 
 void abstract_evaluation_layer::bp_compute() {
-  El::Fill(get_error_signals(), DataType(m_scale));
+  El::Fill(this->get_error_signals(), TensorDataType(m_scale));
 }
 
 abstract_evaluation_layer*
