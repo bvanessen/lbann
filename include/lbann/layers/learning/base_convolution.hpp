@@ -246,19 +246,19 @@ public:
     std::ostringstream err;
 
     // Check number of channels and channel groups
-    const auto& input_dims = get_input_dims();
+    const auto& input_dims = this->get_input_dims();
     if (m_output_channels < 1) {
-      err << get_type() << " layer \"" << get_name() << "\" "
+      err << get_type() << " layer \"" << this->get_name() << "\" "
           << "has an invalid number of output channels "
           << "(" << m_output_channels << ")";
       LBANN_ERROR(err.str());
     } else if (m_groups < 1) {
-      err << get_type() << " layer \"" << get_name() << "\" "
+      err << get_type() << " layer \"" << this->get_name() << "\" "
           << "has an invalid number of groups (" << m_groups << ")";
       LBANN_ERROR(err.str());
     } else if (input_dims[0] % m_groups != 0
                || m_output_channels % m_groups != 0) {
-      err << get_type() << " layer \"" << get_name() << "\" "
+      err << get_type() << " layer \"" << this->get_name() << "\" "
           << "has " << m_groups << " groups, which does not divide "
           << "the input channels (" << input_dims[0] << ") or "
           << "the output channels (" << m_output_channels << ")";
@@ -270,7 +270,7 @@ public:
     if (m_conv_dims.size() != num_spatial_dims
         || std::any_of(m_conv_dims.begin(), m_conv_dims.end(),
                        [](El::Int d) { return d < 1; })) {
-      err << get_type() << " layer \"" << get_name() << "\" "
+      err << get_type() << " layer \"" << this->get_name() << "\" "
           << "has invalid spatial dimensions for convolution kernel (";
       if (m_conv_dims.empty()) { err << "no dimensions"; }
       for (size_t i = 0; i < m_conv_dims.size(); ++i) {
@@ -279,7 +279,7 @@ public:
       err << ", expected " << num_spatial_dims << " spatial dimensions)";
       LBANN_ERROR(err.str());
     } else if (m_pads.size() != num_spatial_dims) {
-      err << get_type() << " layer \"" << get_name() << "\" "
+      err << get_type() << " layer \"" << this->get_name() << "\" "
           << "has invalid convolution pads ((";
       for (size_t i = 0; i < m_pads.size(); ++i) {
         err << (i > 0 ? "," : "") << m_pads[i];
@@ -289,7 +289,7 @@ public:
     } else if (m_strides.size() != num_spatial_dims
                || std::any_of(m_strides.begin(), m_strides.end(),
                               [](El::Int d) { return d < 1; })) {
-      err << get_type() << " layer \"" << get_name() << "\" "
+      err << get_type() << " layer \"" << this->get_name() << "\" "
           << "has invalid convolution strides ((";
       for (size_t i = 0; i < m_strides.size(); ++i) {
         err << (i > 0 ? "," : "") << m_strides[i];
@@ -299,7 +299,7 @@ public:
     } else if (m_dilations.size() != num_spatial_dims
                || std::any_of(m_dilations.begin(), m_dilations.end(),
                               [](El::Int d) { return d < 1; })) {
-      err << get_type() << " layer \"" << get_name() << "\" "
+      err << get_type() << " layer \"" << this->get_name() << "\" "
           << "has invalid convolution dilations ((";
       for (size_t i = 0; i < m_dilations.size(); ++i) {
         err << (i > 0 ? "," : "") << m_dilations[i];
@@ -312,12 +312,12 @@ public:
     if (Device == El::Device::CPU
         && std::any_of(m_dilations.begin(), m_dilations.end(),
                        [](El::Int d) { return d != 1; })) {
-      err << get_type() << " layer \"" << get_name() << "\" "
+      err << get_type() << " layer \"" << this->get_name() << "\" "
           << "has non-unit dilation, which is not yet supported on CPU";
       LBANN_ERROR(err.str());
     }
     if (Device == El::Device::CPU && m_groups != 1) {
-      err << get_type() << " layer \"" << get_name() << "\" "
+      err << get_type() << " layer \"" << this->get_name() << "\" "
           << "has " << m_groups << " groups, "
           << "but only one group is currently supported on CPU";
       LBANN_ERROR(err.str());
@@ -332,7 +332,7 @@ public:
     data_type_layer<TensorDataType>::setup_data();
 
     // Tensor dimensions
-    const auto& input_dims = get_input_dims();
+    const auto& input_dims = this->get_input_dims();
     const auto& output_dims = get_output_dims();
     const auto& kernel_dims = get_kernel_dims();
     const auto& kernel_size = std::accumulate(kernel_dims.begin(),
@@ -342,7 +342,7 @@ public:
     // Initialize default weights if none are provided
     if (this->m_weights.size() > 2) {
       std::stringstream err;
-      err << "attempted to setup layer \"" << get_name() << "\" "
+      err << "attempted to setup layer \"" << this->get_name() << "\" "
           << "with an invalid number of weights "
           << "(expected at most 2, "
           << "found " << this->m_weights.size() << ")";
@@ -356,7 +356,7 @@ public:
     if (this->m_weights[0] == nullptr) {
       auto w = make_unique<weights>(get_comm());
       auto init = make_unique<he_initializer>(probability_distribution::gaussian);
-      std::unique_ptr<optimizer> opt(m_model->create_optimizer());
+      std::unique_ptr<optimizer<TensorDataType>> opt(m_model->create_optimizer());
       w->set_name(get_name() + "_kernel");
       w->set_initializer(std::move(init));
       w->set_optimizer(std::move(opt));
@@ -374,7 +374,7 @@ public:
     }
 
     // Initialize weight matrices
-    auto dist = get_prev_activations().DistData();
+    auto dist = this->get_prev_activations().DistData();
     dist.colDist = El::STAR;
     dist.rowDist = El::STAR;
     kernel_weights.set_dims(kernel_dims);
@@ -384,7 +384,7 @@ public:
     if (m_bias_scaling_factor != TensorDataType(0)) {
       if (this->m_weights[1] == nullptr) {
         auto w = make_unique<weights>(get_comm());
-        std::unique_ptr<optimizer> opt(m_model->create_optimizer());
+        std::unique_ptr<optimizer<TensorDataType>> opt(m_model->create_optimizer());
         w->set_name(get_name() + "_bias");
         w->set_optimizer(std::move(opt));
         this->m_weights[1] = w.get();
@@ -407,7 +407,7 @@ public:
       if (w->is_frozen() != m_frozen) {
         std::stringstream err;
         err << (m_frozen ? "" : "un") << "frozen "
-            << "layer \"" << get_name() << "\" has "
+            << "layer \"" << this->get_name() << "\" has "
             << (w->is_frozen() ? "" : "un") << "frozen "
             << "weights \"" << w->get_name() << "\"";
         LBANN_ERROR(err.str());
@@ -499,14 +499,14 @@ protected:
     std::vector<int> input_dims, output_dims;
     cudnnTensorDescriptor_t input_desc, output_desc;
     if (during_forward_prop) {
-      input_dims = get_input_dims();
+      input_dims = this->get_input_dims();
       output_dims = get_output_dims();
       input_desc = m_tensors_cudnn_desc.get_prev_activations();
       output_desc = m_tensors_cudnn_desc.get_activations();
     }
     else {
       input_dims = get_output_dims();
-      output_dims = get_input_dims();
+      output_dims = this->get_input_dims();
       input_desc = m_tensors_cudnn_desc.get_prev_error_signals();
       output_desc = m_tensors_cudnn_desc.get_error_signals();
     }
@@ -577,14 +577,14 @@ protected:
     std::vector<int> input_dims, output_dims;
     cudnnTensorDescriptor_t input_desc, output_desc;
     if (during_forward_prop) {
-      input_dims = get_input_dims();
+      input_dims = this->get_input_dims();
       output_dims = get_output_dims();
       input_desc = m_tensors_cudnn_desc.get_prev_activations();
       output_desc = m_tensors_cudnn_desc.get_activations();
     }
     else {
       input_dims = get_output_dims();
-      output_dims = get_input_dims();
+      output_dims = this->get_input_dims();
       input_desc = m_tensors_cudnn_desc.get_prev_error_signals();
       output_desc = m_tensors_cudnn_desc.get_error_signals();
     }
@@ -770,12 +770,12 @@ protected:
     const El::Int local_width = local_input.Width();
     std::vector<int> input_dims, output_dims;
     if (during_forward_prop) {
-      input_dims = get_input_dims();
+      input_dims = this->get_input_dims();
       output_dims = get_output_dims();
     }
     else {
       input_dims = get_output_dims();
-      output_dims = get_input_dims();
+      output_dims = this->get_input_dims();
     }
     const auto& kernel_dims = get_kernel_dims();
     const auto& kernel_size = std::accumulate(kernel_dims.begin(),
@@ -831,12 +831,12 @@ protected:
     const El::Int local_width = local_input.Width();
     std::vector<int> input_dims, output_dims;
     if (during_forward_prop) {
-      input_dims = get_input_dims();
+      input_dims = this->get_input_dims();
       output_dims = get_output_dims();
     }
     else {
       input_dims = get_output_dims();
-      output_dims = get_input_dims();
+      output_dims = this->get_input_dims();
     }
     const auto& kernel_dims = get_kernel_dims();
     const auto& kernel_size = std::accumulate(kernel_dims.begin(),
@@ -916,7 +916,7 @@ protected:
 
     // Get convolution parameters
     const El::Int local_width = local_input.Width();
-    const auto& input_dims = get_input_dims();
+    const auto& input_dims = this->get_input_dims();
     const auto& output_dims = get_output_dims();
     const int num_input_channels = input_dims[0];
     const int num_output_channels = output_dims[0];
