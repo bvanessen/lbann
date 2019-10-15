@@ -32,28 +32,28 @@ namespace lbann {
 namespace {
 
 /** Minimum output value to avoid denormalized floats. */
-inline __device__ DataType get_min_output() {
+inline __device__ TensorDataType get_min_output() {
 #ifdef LBANN_ENABLE_SOFTMAX_CUTOFF
-  return cuda::sqrt(cuda::min<DataType>());
+  return cuda::sqrt(cuda::min<TensorDataType>());
 #else
-  return DataType(0);
+  return TensorDataType(0);
 #endif // LBANN_ENABLE_SOFTMAX_CUTOFF
 }
 
 #ifdef LBANN_ENABLE_SOFTMAX_CUTOFF
 /** Operator for thresholding output. */
 struct fp_threshold_op {
-  const DataType min_output = get_min_output();
-  inline __device__ DataType operator()(const DataType& y) const {
+  const TensorDataType min_output =this->get_min_output();
+  inline __device__ TensorDataType operator()(const TensorDataType& y) const {
     return cuda::max(y, min_output);
   }
 };
 /** Operator for thresholding gradient w.r.t. input. */
 struct bp_threshold_op {
-  const DataType min_output = get_min_output();
-  inline __device__ DataType operator()(const DataType& y,
-                                        const DataType& dx) const {
-    return (y > min_output) ? dx : DataType(0);
+  const TensorDataType min_output =this->get_min_output();
+  inline __device__ TensorDataType operator()(const TensorDataType& y,
+                                        const TensorDataType& dx) const {
+    return (y > min_output) ? dx : TensorDataType(0);
   }
 };
 #endif // LBANN_ENABLE_SOFTMAX_CUTOFF
@@ -65,9 +65,9 @@ struct bp_threshold_op {
  */
 template <El::Int block_size>
 __global__ void reduce_max_kernel(El::Int height, El::Int width,
-                                  const DataType* __restrict__ values,
+                                  const TensorDataType* __restrict__ values,
                                   El::Int values_ldim,
-                                  DataType* __restrict__ max_values) {
+                                  TensorDataType* __restrict__ max_values) {
 
   // Indices
   const El::Int tid = threadIdx.x;
@@ -82,14 +82,14 @@ __global__ void reduce_max_kernel(El::Int height, El::Int width,
   for (El::Int col = bidy; col < width; col += nblocksy) {
 
     // Find largest value for each thread
-    DataType private_max_val = -cuda::infinity<DataType>();
+    TensorDataType private_max_val = -cuda::infinity<TensorDataType>();
     for (El::Int row = gidx; row < height; row += nthreadsx) {
       private_max_val = cuda::max(private_max_val,
                                   values[row + col * values_ldim]);
     }
 
     // Shared memory reduction to get largest value for each block
-    __shared__ DataType shared_max_vals[block_size];
+    __shared__ TensorDataType shared_max_vals[block_size];
     shared_max_vals[tid] = private_max_val;
     for (El::Int stride = block_size / 2; stride > 0; stride /= 2) {
       __syncthreads();
@@ -112,13 +112,13 @@ __global__ void reduce_max_kernel(El::Int height, El::Int width,
  */
 template <El::Int block_size>
 __global__ void fp_exp_kernel(El::Int height, El::Int width,
-                              const DataType* __restrict__ input,
+                              const TensorDataType* __restrict__ input,
                               El::Int input_ldim,
-                              DataType* __restrict__ output,
+                              TensorDataType* __restrict__ output,
                               El::Int output_ldim,
-                              const DataType* __restrict__ shifts,
+                              const TensorDataType* __restrict__ shifts,
                               El::Int shifts_stride,
-                              DataType* __restrict__ sums,
+                              TensorDataType* __restrict__ sums,
                               El::Int sums_stride) {
 
   // Indices
@@ -133,7 +133,7 @@ __global__ void fp_exp_kernel(El::Int height, El::Int width,
     const auto& shift = shifts[col * shifts_stride];
 
     // Exponentiate and compute sum for each thread
-    DataType private_sum = 0;
+    TensorDataType private_sum = 0;
     for (El::Int row = gidx; row < height; row += nthreadsx) {
       const auto& x = input[row + col * input_ldim];
       auto& y = output[row + col * output_ldim];
@@ -142,7 +142,7 @@ __global__ void fp_exp_kernel(El::Int height, El::Int width,
     }
 
     // Shared memory reduction to get sum for each block
-    __shared__ DataType shared_sums[block_size];
+    __shared__ TensorDataType shared_sums[block_size];
     shared_sums[tid] = private_sum;
     for (El::Int stride = block_size / 2; stride > 0; stride /= 2) {
       __syncthreads();
@@ -165,15 +165,15 @@ __global__ void fp_exp_kernel(El::Int height, El::Int width,
  *  denormalized floats.
  */
 __global__ void fp_scale_kernel(El::Int height, El::Int width,
-                                DataType* __restrict__ output,
+                                TensorDataType* __restrict__ output,
                                 El::Int output_ldim,
-                                const DataType* __restrict__ sums,
+                                const TensorDataType* __restrict__ sums,
                                 El::Int sums_stride) {
   const El::Int gidx = threadIdx.x + blockIdx.x * blockDim.x;
   const El::Int bidy = blockIdx.y;
   const El::Int nthreadsx = blockDim.x * gridDim.x;
   const El::Int nblocksy = gridDim.y;
-  const auto& min_output = get_min_output();
+  const auto& min_output =this->get_min_output();
   for (El::Int col = bidy; col < width; col += nblocksy) {
     const auto& scale = 1 / sums[col * sums_stride];
     for (El::Int row = gidx; row < height; row += nthreadsx) {
@@ -186,11 +186,11 @@ __global__ void fp_scale_kernel(El::Int height, El::Int width,
 /** Compute dot products between output and gradient w.r.t. output. */
 template <El::Int block_size>
 __global__ void bp_dot_product_kernel(El::Int height, El::Int width,
-                                      const DataType* __restrict__ output,
+                                      const TensorDataType* __restrict__ output,
                                       El::Int output_ldim,
-                                      const DataType* __restrict__ gradient_wrt_output,
+                                      const TensorDataType* __restrict__ gradient_wrt_output,
                                       El::Int gradient_wrt_output_ldim,
-                                      DataType* __restrict__ dot_products,
+                                      TensorDataType* __restrict__ dot_products,
                                       El::Int dot_products_stride) {
 
   // Indices
@@ -204,7 +204,7 @@ __global__ void bp_dot_product_kernel(El::Int height, El::Int width,
   for (El::Int col = bidy; col < width; col += nblocksy) {
 
     // Compute dot product contribution for each thread
-    DataType private_dot_product = 0;
+    TensorDataType private_dot_product = 0;
     for (El::Int row = gidx; row < height; row += nthreadsx) {
       const auto& y = output[row + col * output_ldim];
       const auto& dy = gradient_wrt_output[row + col * gradient_wrt_output_ldim];
@@ -212,7 +212,7 @@ __global__ void bp_dot_product_kernel(El::Int height, El::Int width,
     }
 
     // Shared memory reduction to get contribution for each block
-    __shared__ DataType shared_dot_products[block_size];
+    __shared__ TensorDataType shared_dot_products[block_size];
     shared_dot_products[tid] = private_dot_product;
     for (El::Int stride = block_size / 2; stride > 0; stride /= 2) {
       __syncthreads();
@@ -234,26 +234,26 @@ __global__ void bp_dot_product_kernel(El::Int height, El::Int width,
 /** Compute gradient w.r.t. input. */
 template <El::Int block_size>
 __global__ void bp_kernel(El::Int height, El::Int width,
-                          const DataType* __restrict__ output,
+                          const TensorDataType* __restrict__ output,
                           El::Int output_ldim,
-                          const DataType* __restrict__ gradient_wrt_output,
+                          const TensorDataType* __restrict__ gradient_wrt_output,
                           El::Int gradient_wrt_output_ldim,
-                          const DataType* __restrict__ dot_products,
+                          const TensorDataType* __restrict__ dot_products,
                           El::Int dot_products_stride,
-                          DataType* __restrict__ gradient_wrt_input,
+                          TensorDataType* __restrict__ gradient_wrt_input,
                           El::Int gradient_wrt_input_ldim) {
   const El::Int gidx = threadIdx.x + blockIdx.x * blockDim.x;
   const El::Int bidy = blockIdx.y;
   const El::Int nthreadsx = blockDim.x * gridDim.x;
   const El::Int nblocksy = gridDim.y;
-  const auto& min_output = get_min_output();
+  const auto& min_output =this->get_min_output();
   for (El::Int col = bidy; col < width; col += nblocksy) {
     const auto& y_dot_dy = dot_products[col * dot_products_stride];
     for (El::Int row = gidx; row < height; row += nthreadsx) {
       const auto& y = output[row + col * output_ldim];
       const auto& dy = gradient_wrt_output[row + col * gradient_wrt_output_ldim];
       auto& dx = gradient_wrt_input[row + col * gradient_wrt_input_ldim];
-      dx = (y > min_output) ? y * (dy - y_dot_dy) : DataType(0);
+      dx = (y > min_output) ? y * (dy - y_dot_dy) : TensorDataType(0);
     }
   }
 }
@@ -262,10 +262,10 @@ __global__ void bp_kernel(El::Int height, El::Int width,
 
 template <>
 void softmax_layer<data_layout::DATA_PARALLEL, El::Device::GPU>::fp_compute() {
-  constexpr DataType zero = 0;
-  constexpr DataType one = 1;
-  const auto& local_input = get_local_prev_activations();
-  auto& local_output = get_local_activations();
+  constexpr TensorDataType zero = 0;
+  constexpr TensorDataType one = 1;
+  const auto& local_input =this->get_local_prev_activations();
+  auto& local_output =this->get_local_activations();
   if (!local_input.IsEmpty()) {
     CHECK_CUDNN(cudnnSoftmaxForward(cudnn::get_handle(),
                                     CUDNN_SOFTMAX_ACCURATE,
@@ -285,11 +285,11 @@ void softmax_layer<data_layout::DATA_PARALLEL, El::Device::GPU>::fp_compute() {
 
 template <>
 void softmax_layer<data_layout::DATA_PARALLEL, El::Device::GPU>::bp_compute() {
-  constexpr DataType zero = 0;
-  constexpr DataType one = 1;
-  const auto& local_output = get_local_activations();
-  const auto& local_gradient_wrt_output = get_local_prev_error_signals();
-  auto& local_gradient_wrt_input = get_local_error_signals();
+  constexpr TensorDataType zero = 0;
+  constexpr TensorDataType one = 1;
+  const auto& local_output =this->get_local_activations();
+  const auto& local_gradient_wrt_output =this->get_local_prev_error_signals();
+  auto& local_gradient_wrt_input =this->get_local_error_signals();
   if (!local_output.IsEmpty()) {
     CHECK_CUDNN(cudnnSoftmaxBackward(cudnn::get_handle(),
                                      CUDNN_SOFTMAX_ACCURATE,
@@ -314,8 +314,8 @@ template <>
 void softmax_layer<data_layout::MODEL_PARALLEL, El::Device::GPU>::fp_compute() {
 
   // Local matrices
-  const auto& local_input = get_local_prev_activations();
-  auto& local_output = get_local_activations();
+  const auto& local_input =this->get_local_prev_activations();
+  auto& local_output =this->get_local_activations();
   auto& local_workspace = m_workspace->Matrix();
   const auto& local_height = local_input.Height();
   const auto& local_width = local_input.Width();
@@ -336,7 +336,7 @@ void softmax_layer<data_layout::MODEL_PARALLEL, El::Device::GPU>::fp_compute() {
   // Find column-wise maximum entries
   grid_dims.x = (local_height + block_size - 1) / block_size;
   if (grid_dims.x < 1) { grid_dims.x = 1; }
-  cuda::thrust::vector<DataType> max_vals(grid_dims.x * local_width);
+  cuda::thrust::vector<TensorDataType> max_vals(grid_dims.x * local_width);
   reduce_max_kernel<block_size><<<grid_dims, block_dims, 0, stream>>>(
     local_height, local_width,
     local_input.LockedBuffer(), local_input.LDim(),
@@ -344,7 +344,7 @@ void softmax_layer<data_layout::MODEL_PARALLEL, El::Device::GPU>::fp_compute() {
   while (grid_dims.x > 1) {
     const El::Int prev_height = grid_dims.x;
     grid_dims.x = (prev_height + block_size - 1) / block_size;
-    cuda::thrust::vector<DataType> prev_vals(std::move(max_vals));
+    cuda::thrust::vector<TensorDataType> prev_vals(std::move(max_vals));
     max_vals.resize(grid_dims.x * local_width);
     reduce_max_kernel<block_size><<<grid_dims, block_dims, 0, stream>>>(
       prev_height, local_width,
@@ -383,9 +383,9 @@ template <>
 void softmax_layer<data_layout::MODEL_PARALLEL, El::Device::GPU>::bp_compute() {
 
   // Local matrices
-  const auto& local_output = get_local_activations();
-  const auto& local_gradient_wrt_output = get_local_prev_error_signals();
-  auto& local_gradient_wrt_input = get_local_error_signals();
+  const auto& local_output =this->get_local_activations();
+  const auto& local_gradient_wrt_output =this->get_local_prev_error_signals();
+  auto& local_gradient_wrt_input =this->get_local_error_signals();
   auto& local_workspace = m_workspace->Matrix();
   const auto& local_height = local_output.Height();
   const auto& local_width = local_output.Width();

@@ -33,9 +33,9 @@ namespace {
 
 // Minimum output value to avoid denormalized floats
 #ifdef LBANN_ENABLE_SOFTMAX_CUTOFF
-const DataType min_output = std::sqrt(std::numeric_limits<DataType>::min());
+const TensorDataType min_output = std::sqrt(std::numeric_limits<TensorDataType>::min());
 #else
-const DataType min_output = 0;
+const TensorDataType min_output = 0;
 #endif // LBANN_ENABLE_SOFTMAX_CUTOFF
 
 void fp(lbann_comm& comm,
@@ -51,7 +51,7 @@ void fp(lbann_comm& comm,
   const auto& local_width = local_input.Width();
 
   // Find column-wise maximum entries
-  El::Fill(workspace, std::numeric_limits<DataType>::lowest());
+  El::Fill(workspace, std::numeric_limits<TensorDataType>::lowest());
   LBANN_OMP_PARALLEL_FOR
   for (El::Int col = 0; col < local_width; ++col) {
     auto& max_entry = local_workspace(0, col);
@@ -67,7 +67,7 @@ void fp(lbann_comm& comm,
   LBANN_OMP_PARALLEL_FOR
   for (El::Int col = 0; col < local_width; ++col) {
     const auto shift = local_workspace(0, col);
-    DataType sum = 0;
+    TensorDataType sum = 0;
     for (El::Int row = 0; row < local_height; ++row) {
       const auto& x = local_input(row, col);
       auto& y = local_output(row, col);
@@ -127,7 +127,7 @@ void bp(lbann_comm& comm,
       const auto& y = local_output(row, col);
       const auto& dy = local_gradient_wrt_output(row, col);
       auto& dx = local_gradient_wrt_input(row, col);
-      dx = (y > min_output) ? y * (dy - y_dot_dy) : DataType(0);
+      dx = (y > min_output) ? y * (dy - y_dot_dy) : TensorDataType(0);
     }
   }
 
@@ -138,31 +138,31 @@ void bp(lbann_comm& comm,
 template <>
 void softmax_layer<data_layout::DATA_PARALLEL, El::Device::CPU>::fp_compute() {
   fp(*get_comm(),
-     get_prev_activations(),
-     get_activations(),
+    this->get_prev_activations(),
+    this->get_activations(),
      *m_workspace);
 }
 template <>
 void softmax_layer<data_layout::DATA_PARALLEL, El::Device::CPU>::bp_compute() {
   bp(*get_comm(),
-     get_activations(),
-     get_prev_error_signals(),
-     get_error_signals(),
+    this->get_activations(),
+    this->get_prev_error_signals(),
+    this->get_error_signals(),
      *m_workspace);
 }
 template <>
 void softmax_layer<data_layout::MODEL_PARALLEL, El::Device::CPU>::fp_compute() {
   fp(*get_comm(),
-     get_prev_activations(),
-     get_activations(),
+    this->get_prev_activations(),
+    this->get_activations(),
      *m_workspace);
 }
 template <>
 void softmax_layer<data_layout::MODEL_PARALLEL, El::Device::CPU>::bp_compute() {
   bp(*get_comm(),
-     get_activations(),
-     get_prev_error_signals(),
-     get_error_signals(),
+    this->get_activations(),
+    this->get_prev_error_signals(),
+    this->get_error_signals(),
      *m_workspace);
 }
 
