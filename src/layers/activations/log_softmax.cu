@@ -36,7 +36,7 @@ namespace {
  *  sample and it finds the largest entry. Results are output to an
  *  nblocksx x width matrix.
  */
-template <El::Int block_size>
+template <typename TensorDataType, El::Int block_size>
 __global__ void reduce_max_kernel(El::Int height, El::Int width,
                                   const TensorDataType* __restrict__ values,
                                   El::Int values_ldim,
@@ -83,7 +83,7 @@ __global__ void reduce_max_kernel(El::Int height, El::Int width,
  *  Inputs are shifted by the column max to prevent LogSumExp from
  *  blowing up.
  */
-template <El::Int block_size>
+template <typename TensorDataType, El::Int block_size>
 __global__ void fp_exp_kernel(El::Int height, El::Int width,
                               const TensorDataType* __restrict__ input,
                               El::Int input_ldim,
@@ -136,6 +136,7 @@ __global__ void fp_exp_kernel(El::Int height, El::Int width,
 /** Subtract LogSumExp from outputs.
  *  sums should contain sum(exp(x)) for each column.
  */
+template <typename TensorDataType>
 __global__ void fp_lse_kernel(El::Int height, El::Int width,
                               TensorDataType* __restrict__ output,
                               El::Int output_ldim,
@@ -155,7 +156,7 @@ __global__ void fp_lse_kernel(El::Int height, El::Int width,
 }
 
 /** Compute sum of entries in gradient w.r.t. output. */
-template <El::Int block_size>
+template <typename TensorDataType, El::Int block_size>
 __global__ void bp_sum_kernel(El::Int height, El::Int width,
                               const TensorDataType* __restrict__ gradient_wrt_output,
                               El::Int gradient_wrt_output_ldim,
@@ -199,7 +200,7 @@ __global__ void bp_sum_kernel(El::Int height, El::Int width,
 }
 
 /** Compute gradient w.r.t. input. */
-template <El::Int block_size>
+template <typename TensorDataType, El::Int block_size>
 __global__ void bp_kernel(El::Int height, El::Int width,
                           const TensorDataType* __restrict__ output,
                           El::Int output_ldim,
@@ -226,54 +227,54 @@ __global__ void bp_kernel(El::Int height, El::Int width,
 
 } // namespace
 
-template <>
-void log_softmax_layer<data_layout::DATA_PARALLEL, El::Device::GPU>::fp_compute() {
+template <typename TensorDataType>
+void fp_compute_impl(log_softmax_layer<TensorDataType, data_layout::DATA_PARALLEL, El::Device::GPU>& l) {
   constexpr TensorDataType zero = 0;
   constexpr TensorDataType one = 1;
-  const auto& local_input =this->get_local_prev_activations();
-  auto& local_output =this->get_local_activations();
+  const auto& local_input = l.get_local_prev_activations();
+  auto& local_output = l.get_local_activations();
   if (!local_input.IsEmpty()) {
     CHECK_CUDNN(cudnnSoftmaxForward(cudnn::get_handle(),
                                     CUDNN_SOFTMAX_LOG,
                                     CUDNN_SOFTMAX_MODE_INSTANCE,
                                     &one,
-                                    m_tensors_cudnn_desc.get_prev_activations(),
+                                    l.m_tensors_cudnn_desc.get_prev_activations(),
                                     local_input.LockedBuffer(),
                                     &zero,
-                                    m_tensors_cudnn_desc.get_activations(),
+                                    l.m_tensors_cudnn_desc.get_activations(),
                                     local_output.Buffer()));
   }
 }
 
-template <>
-void log_softmax_layer<data_layout::DATA_PARALLEL, El::Device::GPU>::bp_compute() {
+template <typename TensorDataType>
+void bp_compute_impl(log_softmax_layer<TensorDataType, data_layout::DATA_PARALLEL, El::Device::GPU>& l) {
   constexpr TensorDataType zero = 0;
   constexpr TensorDataType one = 1;
-  const auto& local_output =this->get_local_activations();
-  const auto& local_gradient_wrt_output =this->get_local_prev_error_signals();
-  auto& local_gradient_wrt_input =this->get_local_error_signals();
+  const auto& local_output = l.get_local_activations();
+  const auto& local_gradient_wrt_output = l.get_local_prev_error_signals();
+  auto& local_gradient_wrt_input = l.get_local_error_signals();
   if (!local_output.IsEmpty()) {
     CHECK_CUDNN(cudnnSoftmaxBackward(cudnn::get_handle(),
                                      CUDNN_SOFTMAX_LOG,
                                      CUDNN_SOFTMAX_MODE_INSTANCE,
                                      &one,
-                                     m_tensors_cudnn_desc.get_activations(),
+                                     l.m_tensors_cudnn_desc.get_activations(),
                                      local_output.LockedBuffer(),
-                                     m_tensors_cudnn_desc.get_prev_error_signals(),
+                                     l.m_tensors_cudnn_desc.get_prev_error_signals(),
                                      local_gradient_wrt_output.LockedBuffer(),
                                      &zero,
-                                     m_tensors_cudnn_desc.get_error_signals(),
+                                     l.m_tensors_cudnn_desc.get_error_signals(),
                                      local_gradient_wrt_input.Buffer()));
   }
 }
 
-template <>
-void log_softmax_layer<data_layout::MODEL_PARALLEL, El::Device::GPU>::fp_compute() {
+template <typename TensorDataType>
+void fp_compute_impl(log_softmax_layer<TensorDataType, data_layout::MODEL_PARALLEL, El::Device::GPU>& l) {
 
   // Local matrices
-  const auto& local_input =this->get_local_prev_activations();
-  auto& local_output =this->get_local_activations();
-  auto& local_workspace = m_workspace->Matrix();
+  const auto& local_input = l.get_local_prev_activations();
+  auto& local_output = l.get_local_activations();
+  auto& local_workspace = l.m_workspace->Matrix();
   const auto& local_height = local_input.Height();
   const auto& local_width = local_input.Width();
 
@@ -294,7 +295,7 @@ void log_softmax_layer<data_layout::MODEL_PARALLEL, El::Device::GPU>::fp_compute
   grid_dims.x = (local_height + block_size - 1) / block_size;
   if (grid_dims.x < 1) { grid_dims.x = 1; }
   cuda::thrust::vector<TensorDataType> max_vals(grid_dims.x * local_width);
-  reduce_max_kernel<block_size><<<grid_dims, block_dims, 0, stream>>>(
+  reduce_max_kernel<TensorDataType, block_size><<<grid_dims, block_dims, 0, stream>>>(
     local_height, local_width,
     local_input.LockedBuffer(), local_input.LDim(),
     max_vals.data().get());
@@ -303,32 +304,32 @@ void log_softmax_layer<data_layout::MODEL_PARALLEL, El::Device::GPU>::fp_compute
     grid_dims.x = (prev_height + block_size - 1) / block_size;
     cuda::thrust::vector<TensorDataType> prev_vals(std::move(max_vals));
     max_vals.resize(grid_dims.x * local_width);
-    reduce_max_kernel<block_size><<<grid_dims, block_dims, 0, stream>>>(
+    reduce_max_kernel<TensorDataType, block_size><<<grid_dims, block_dims, 0, stream>>>(
       prev_height, local_width,
       prev_vals.data().get(), prev_height,
       max_vals.data().get());
   }
   El::mpi::AllReduce(max_vals.data().get(), max_vals.size(),
-                     El::mpi::MAX, m_workspace->RedundantComm(),
+                     El::mpi::MAX, l.m_workspace->RedundantComm(),
                      sync_info);
 
   // Shift inputs and compute sum(exp(x)) for each column
-  El::Zero(*m_workspace);
+  El::Zero(*l.m_workspace);
   if (!local_output.IsEmpty()) {
     grid_dims.x = (local_height + block_size - 1) / block_size;
-    fp_exp_kernel<block_size><<<grid_dims, block_dims, 0, stream>>>(
+    fp_exp_kernel<TensorDataType, block_size><<<grid_dims, block_dims, 0, stream>>>(
       local_height, local_width,
       local_input.LockedBuffer(), local_input.LDim(),
       local_output.Buffer(), local_output.LDim(),
       max_vals.data().get(), 1,
       local_workspace.Buffer(), 1);
   }
-  El::AllReduce(*m_workspace, m_workspace->RedundantComm());
+  El::AllReduce(*l.m_workspace, l.m_workspace->RedundantComm());
 
   // Compute output by subtracting LogSumExp
   if (!local_output.IsEmpty()) {
     grid_dims.x = (local_height + block_size - 1) / block_size;
-    fp_lse_kernel<<<grid_dims, block_dims, 0, stream>>>(
+    fp_lse_kernel<TensorDataType><<<grid_dims, block_dims, 0, stream>>>(
       local_height, local_width,
       local_output.Buffer(), local_output.LDim(),
       local_workspace.LockedBuffer(), 1);
@@ -336,14 +337,14 @@ void log_softmax_layer<data_layout::MODEL_PARALLEL, El::Device::GPU>::fp_compute
 
 }
 
-template <>
-void log_softmax_layer<data_layout::MODEL_PARALLEL, El::Device::GPU>::bp_compute() {
+template <typename TensorDataType>
+void bp_compute_impl(log_softmax_layer<TensorDataType, data_layout::MODEL_PARALLEL, El::Device::GPU>& l) {
 
   // Local matrices
-  const auto& local_output =this->get_local_activations();
-  const auto& local_gradient_wrt_output =this->get_local_prev_error_signals();
-  auto& local_gradient_wrt_input =this->get_local_error_signals();
-  auto& local_workspace = m_workspace->Matrix();
+  const auto& local_output = l.get_local_activations();
+  const auto& local_gradient_wrt_output = l.get_local_prev_error_signals();
+  auto& local_gradient_wrt_input = l.get_local_error_signals();
+  auto& local_workspace = l.m_workspace->Matrix();
   const auto& local_height = local_output.Height();
   const auto& local_width = local_output.Width();
 
@@ -364,19 +365,19 @@ void log_softmax_layer<data_layout::MODEL_PARALLEL, El::Device::GPU>::bp_compute
   El::Zero(local_workspace);
   if (!local_output.IsEmpty()) {
     grid_dims.x = (local_height + block_size - 1) / block_size;
-    bp_sum_kernel<block_size>
+    bp_sum_kernel<TensorDataType, block_size>
       <<<grid_dims, block_dims, 0, stream>>>(
         local_height, local_width,
         local_gradient_wrt_output.LockedBuffer(),
         local_gradient_wrt_output.LDim(),
         local_workspace.Buffer(), 1);
   }
-  El::AllReduce(*m_workspace, m_workspace->RedundantComm());
+  El::AllReduce(*l.m_workspace, l.m_workspace->RedundantComm());
 
   // Compute gradient w.r.t. input
   if (!local_output.IsEmpty()) {
     grid_dims.x = (local_height + block_size - 1) / block_size;
-    bp_kernel<block_size><<<grid_dims, block_dims, 0, stream>>>(
+    bp_kernel<TensorDataType, block_size><<<grid_dims, block_dims, 0, stream>>>(
       local_height, local_width,
       local_output.LockedBuffer(),
       local_output.LDim(),
@@ -390,8 +391,8 @@ void log_softmax_layer<data_layout::MODEL_PARALLEL, El::Device::GPU>::bp_compute
 }
 
 template class log_softmax_layer<
-  data_layout::DATA_PARALLEL, El::Device::GPU>;
+  float, data_layout::DATA_PARALLEL, El::Device::GPU>;
 template class log_softmax_layer<
-  data_layout::MODEL_PARALLEL, El::Device::GPU>;
+  float, data_layout::MODEL_PARALLEL, El::Device::GPU>;
 
 } // namespace lbann
