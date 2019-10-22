@@ -31,17 +31,12 @@ namespace lbann {
 
 namespace {
 
-// Minimum output value to avoid denormalized floats
-#ifdef LBANN_ENABLE_SOFTMAX_CUTOFF
-const TensorDataType min_output = std::sqrt(std::numeric_limits<TensorDataType>::min());
-#else
-const TensorDataType min_output = 0;
-#endif // LBANN_ENABLE_SOFTMAX_CUTOFF
-
+template <typename TensorDataType>
 void fp(lbann_comm& comm,
         const El::AbstractDistMatrix<TensorDataType>& input,
         El::AbstractDistMatrix<TensorDataType>& output,
-        El::AbstractDistMatrix<TensorDataType>& workspace) {
+        El::AbstractDistMatrix<TensorDataType>& workspace,
+        TensorDataType min_output) {
 
   // Local matrices
   const auto& local_input = input.LockedMatrix();
@@ -92,11 +87,13 @@ void fp(lbann_comm& comm,
 
 }
 
+template <typename TensorDataType>
 void bp(lbann_comm& comm,
         const El::AbstractDistMatrix<TensorDataType>& output,
         const El::AbstractDistMatrix<TensorDataType>& gradient_wrt_output,
         El::AbstractDistMatrix<TensorDataType>& gradient_wrt_input,
-        El::AbstractDistMatrix<TensorDataType>& workspace) {
+        El::AbstractDistMatrix<TensorDataType>& workspace,
+        TensorDataType min_output) {
 
   // Local matrices
   const auto& local_output = output.LockedMatrix();
@@ -135,40 +132,53 @@ void bp(lbann_comm& comm,
 
 } // namespace
 
-template <>
-void softmax_layer<data_layout::DATA_PARALLEL, El::Device::CPU>::fp_compute() {
-  fp(*get_comm(),
-    this->get_prev_activations(),
-    this->get_activations(),
-     *m_workspace);
+template <typename TensorDataType>
+void fp_compute_impl(softmax_layer<TensorDataType, data_layout::DATA_PARALLEL, El::Device::CPU>& l) {
+  fp<TensorDataType>(*l.get_comm(),
+                     l.get_prev_activations(),
+                     l.get_activations(),
+                     *l.m_workspace,
+                     l.min_output);
 }
-template <>
-void softmax_layer<data_layout::DATA_PARALLEL, El::Device::CPU>::bp_compute() {
-  bp(*get_comm(),
-    this->get_activations(),
-    this->get_prev_error_signals(),
-    this->get_error_signals(),
-     *m_workspace);
+template <typename TensorDataType>
+void bp_compute_impl(softmax_layer<TensorDataType, data_layout::DATA_PARALLEL, El::Device::CPU>& l) {
+  bp<TensorDataType>(*l.get_comm(),
+                     l.get_activations(),
+                     l.get_prev_error_signals(),
+                     l.get_error_signals(),
+                     *l.m_workspace,
+                     l.min_output);
 }
-template <>
-void softmax_layer<data_layout::MODEL_PARALLEL, El::Device::CPU>::fp_compute() {
-  fp(*get_comm(),
-    this->get_prev_activations(),
-    this->get_activations(),
-     *m_workspace);
+template <typename TensorDataType>
+void fp_compute_impl(softmax_layer<TensorDataType, data_layout::MODEL_PARALLEL, El::Device::CPU>& l) {
+  fp<TensorDataType>(*l.get_comm(),
+                     l.get_prev_activations(),
+                     l.get_activations(),
+                     *l.m_workspace,
+                     l.min_output);
 }
-template <>
-void softmax_layer<data_layout::MODEL_PARALLEL, El::Device::CPU>::bp_compute() {
-  bp(*get_comm(),
-    this->get_activations(),
-    this->get_prev_error_signals(),
-    this->get_error_signals(),
-     *m_workspace);
+template <typename TensorDataType>
+void bp_compute_impl(softmax_layer<TensorDataType, data_layout::MODEL_PARALLEL, El::Device::CPU>& l) {
+  bp<TensorDataType>(*l.get_comm(),
+                     l.get_activations(),
+                     l.get_prev_error_signals(),
+                     l.get_error_signals(),
+                     *l.m_workspace,
+                     l.min_output);
+}
+
+template <typename TensorDataType, data_layout Layout, El::Device Device>
+void softmax_layer<TensorDataType, Layout, Device>::fp_compute() {
+  fp_compute_impl<TensorDataType>(*this);
+}
+template <typename TensorDataType, data_layout Layout, El::Device Device>
+void softmax_layer<TensorDataType, Layout, Device>::bp_compute() {
+  bp_compute_impl<TensorDataType>(*this);
 }
 
 template class softmax_layer<
-  data_layout::DATA_PARALLEL, El::Device::CPU>;
+  float, data_layout::DATA_PARALLEL, El::Device::CPU>;
 template class softmax_layer<
-  data_layout::MODEL_PARALLEL, El::Device::CPU>;
+  float, data_layout::MODEL_PARALLEL, El::Device::CPU>;
 
 } // namespace lbann
