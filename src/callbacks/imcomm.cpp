@@ -53,7 +53,7 @@ imcomm::imcomm(imcomm::comm_type ct,
   }
 }
 
-void imcomm::set_weights_comm(weights *w,
+void imcomm::set_weights_comm(weights<DataType> *w,
                                              comm_type ct) {
   m_weights_params[w] = {};
   m_weights_params[w].ct = ct;
@@ -73,7 +73,7 @@ void imcomm::setup(model *m) {
     // Setup imcomm parameters if needed
     imcomm_params& params = m_weights_params[w];
     if (params.ct != NONE) {
-      optimizer *opt = w->get_optimizer();
+      optimizer<DataType> *opt = w->get_optimizer();
       if (opt == nullptr) {
         std::stringstream err;
         err << "imcomm: trying to do inter-model gradient communication on "
@@ -110,7 +110,7 @@ void imcomm::on_backward_prop_end(model *m) {
     if (params.ct == NONE) {
       continue;
     }
-    optimizer *opt = w->get_optimizer();
+    optimizer<DataType> *opt = w->get_optimizer();
     auto gradient = std::unique_ptr<El::AbstractDistMatrix<TensorDataType>>{opt->get_gradient().Copy()};
     Mat* local_gradients = &(static_cast<CPUMat&>(gradient->Matrix()));
     switch (params.ct) {
@@ -127,7 +127,7 @@ void imcomm::on_backward_prop_end(model *m) {
   }
 }
 
-void imcomm::do_summary(model *m, weights *w,
+void imcomm::do_summary(model *m, weights<DataType> *w,
                                        EvalType im_time) {
   if (m_summarizer == nullptr) {
     return;
