@@ -100,9 +100,11 @@ class imcomm : public data_type_callback<TensorDataType> {
 
 
 /** returns a string representation of the weight_initialization */
-std::string get_comm_type_name(imcomm<TensorDataType>::comm_type m);
+template <typename TensorDataType>
+std::string get_comm_type_name(typename imcomm<TensorDataType>::comm_type m);
 
 // Builder function
+template <typename TensorDataType>
 std::unique_ptr<callback_base>
 build_imcomm_callback_from_pbuf(
   const google::protobuf::Message&, std::shared_ptr<lbann_summary> const&);
