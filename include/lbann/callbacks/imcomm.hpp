@@ -32,7 +32,7 @@
 #include <vector>
 #include <unordered_set>
 #include <unordered_map>
-#include "lbann/callbacks/callback.hpp"
+#include "lbann/callbacks/data_type_callback.hpp"
 
 namespace lbann {
 namespace callback {
@@ -41,7 +41,8 @@ namespace callback {
  * Support inter-model communication after each mini-batch to synchronize
  * gradient updates.
  */
-class imcomm : public callback_base {
+template <typename TensorDataType>
+class imcomm : public data_type_callback<TensorDataType> {
  public:
   using callback_base::on_backward_prop_end;
 
@@ -54,7 +55,7 @@ class imcomm : public callback_base {
    * Initialize with ct being used for all weights.
    */
   imcomm(comm_type ct = NORMAL,
-                        const std::shared_ptr<lbann_summary>& summarizer = nullptr);
+         const std::shared_ptr<lbann_summary>& summarizer = nullptr);
   imcomm(const imcomm&) = default;
   imcomm& operator=(const imcomm&) = default;
   imcomm* copy() const override {
@@ -64,11 +65,11 @@ class imcomm : public callback_base {
    * Convenience initialization to do one update type for specific weights.
    * Implies no inter-model updates for other weights.
    */
-  imcomm(comm_type ct, std::unordered_set<weights<DataType> *> weights_list,
+  imcomm(comm_type ct, std::unordered_set<weights<TensorDataType> *> weights_list,
                         const std::shared_ptr<lbann_summary>& summarizer = nullptr);
 
   /** Choose comm type ct for weights. */
-  void set_weights_comm(weights<DataType> *w, comm_type ct);
+  void set_weights_comm(weights<TensorDataType> *w, comm_type ct);
 
   /** Do initialization for this model. */
   void setup(model *m) override;
@@ -88,10 +89,10 @@ class imcomm : public callback_base {
   /** Default communication type. */
   comm_type m_default_ct;
   /** Per-weights parameters. */
-  std::unordered_map<weights<DataType> *, imcomm_params> m_weights_params;
+  std::unordered_map<weights<TensorDataType> *, imcomm_params> m_weights_params;
 
   /** Summarize relevant statistics. */
-  void do_summary(model *m, weights<DataType> *w, EvalType im_time);
+  void do_summary(model *m, weights<TensorDataType> *w, EvalType im_time);
 
   /** @brief lbann_summary */
   std::shared_ptr<lbann_summary> m_summarizer = nullptr;
@@ -99,7 +100,7 @@ class imcomm : public callback_base {
 
 
 /** returns a string representation of the weight_initialization */
-std::string get_comm_type_name(imcomm::comm_type m);
+std::string get_comm_type_name(imcomm<TensorDataType>::comm_type m);
 
 // Builder function
 std::unique_ptr<callback_base>
