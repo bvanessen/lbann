@@ -23,6 +23,12 @@ std::unique_ptr<T> make_unique(Ts&&... params)
 
 #endif
 
+template <typename T>
+std::unique_ptr<T> ToUniquePtr(T* ptr)
+{
+  return std::unique_ptr<T>(ptr);
+}
+
 }// namespace lbann
 
 #endif /* LBANN_MEMORY_HPP_ */
