@@ -46,7 +46,7 @@ void fp_compute_impl(embedding_layer<TensorDataType, data_layout::DATA_PARALLEL,
   // Local data
   const auto& local_dict = dynamic_cast<const El::Matrix<TensorDataType, El::Device::CPU>&>(l.get_weights()[0]->get_values().LockedMatrix());
   const auto& local_input = dynamic_cast<const El::Matrix<TensorDataType, El::Device::CPU>&>(l.get_local_prev_activations());
-  auto& local_output = dynamic_cast<const El::Matrix<TensorDataType, El::Device::CPU>&>(l.get_local_activations());
+  auto& local_output = dynamic_cast<El::Matrix<TensorDataType, El::Device::CPU>&>(l.get_local_activations());
   const auto& local_width = local_input.Width();
 
   // Populate output matrix with appropriate columns of dictionary
@@ -76,7 +76,7 @@ void bp_compute_impl(embedding_layer<TensorDataType, data_layout::DATA_PARALLEL,
 
   // Local data
   const auto& local_input = dynamic_cast<const El::Matrix<TensorDataType, El::Device::CPU>&>(l.get_local_prev_activations());
-  auto& local_dict_grad = dynamic_cast<const El::Matrix<TensorDataType, El::Device::CPU>&>(l.m_dictionary_gradient.Matrix());
+  auto& local_dict_grad = dynamic_cast<El::Matrix<TensorDataType, El::Device::CPU>&>(l.m_dictionary_gradient.Matrix());
   const auto& local_output_grad = dynamic_cast<const El::Matrix<TensorDataType, El::Device::CPU>&>(l.get_local_prev_error_signals());
   const auto& local_width = local_input.Width();
 
