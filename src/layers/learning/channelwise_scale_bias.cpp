@@ -36,7 +36,7 @@ void fp_compute_impl(channelwise_scale_bias_layer<TensorDataType, data_layout::D
   // Local matrices
   const auto& local_input = dynamic_cast<const El::Matrix<TensorDataType, El::Device::CPU>&>(l.get_local_prev_activations());
   auto& local_output = dynamic_cast<El::Matrix<TensorDataType, El::Device::CPU>&>(l.get_local_activations());
-  const auto& local_weights = dynamic_cast<const El::Matrix<TensorDataType, El::Device::CPU>&>(l.get_weights()[0]->get_values().LockedMatrix());
+  const auto& local_weights = dynamic_cast<const El::Matrix<TensorDataType, El::Device::CPU>&>(l.get_data_type_weights()[0]->get_values().LockedMatrix());
   const auto local_scale = El::LockedView(local_weights,
                                           El::ALL, El::IR(0));
   const auto local_bias = El::LockedView(local_weights,
@@ -79,7 +79,7 @@ void bp_compute_impl(channelwise_scale_bias_layer<TensorDataType, data_layout::D
   const auto& local_input = dynamic_cast<const El::Matrix<TensorDataType, El::Device::CPU>&>(l.get_local_prev_activations());
   const auto& local_gradient_wrt_output = dynamic_cast<const El::Matrix<TensorDataType, El::Device::CPU>&>(l.get_local_prev_error_signals());
   auto& local_gradient_wrt_input = dynamic_cast<El::Matrix<TensorDataType, El::Device::CPU>&>(l.get_local_error_signals());
-  const auto& local_weights = dynamic_cast<const El::Matrix<TensorDataType, El::Device::CPU>&>(l.get_weights()[0]->get_values().LockedMatrix());
+  const auto& local_weights = dynamic_cast<const El::Matrix<TensorDataType, El::Device::CPU>&>(l.get_data_type_weights()[0]->get_values().LockedMatrix());
   auto& local_gradient_wrt_weights = dynamic_cast<El::Matrix<TensorDataType, El::Device::CPU>&>(l.m_weights_gradient->Matrix());
   const auto local_scale = El::LockedView(local_weights,
                                           El::ALL, El::IR(0));
@@ -123,7 +123,7 @@ void bp_compute_impl(channelwise_scale_bias_layer<TensorDataType, data_layout::D
   }
 
   // Update optimizer with gradient
-  auto* opt = l.get_weights()[0]->get_optimizer();
+  auto* opt = l.get_data_type_weights()[0]->get_optimizer();
   if (opt != nullptr) {
     const auto& c = static_cast<const sgd_execution_context&>(l.m_model->get_execution_context());
     const auto mini_batch_size = c.get_effective_mini_batch_size();
