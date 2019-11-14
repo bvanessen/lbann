@@ -263,7 +263,7 @@ void bp_compute_impl(channelwise_scale_bias_layer<TensorDataType, data_layout::D
   }
 
   // Update optimizer with gradient
-  auto* opt = l.m_weights[0]->get_optimizer();
+  auto* opt = l.get_data_type_weights()[0]->get_optimizer();
   if (opt != nullptr) {
     const auto& c = static_cast<const sgd_execution_context&>(l.m_model->get_execution_context());
     const auto mini_batch_size = c.get_effective_mini_batch_size();
