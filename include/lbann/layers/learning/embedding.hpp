@@ -52,6 +52,13 @@ class embedding_layer : public data_type_layer<TensorDataType> {
   static_assert(Device == El::Device::CPU,
                 "embedding layer only supports CPU");
 public:
+  /** @name Public Types */
+  ///@{
+
+  /** @brief The concrete weights type used by this object. */
+  using WeightsType = data_type_weights<TensorDataType>;
+
+public:
 
   /**
    *  @param comm           LBANN communicator.
@@ -157,7 +164,7 @@ void embedding_layer<TensorDataType, Layout,Device>::setup_data() {
   // Note: Randomly drawn from normal distribution with mean 0 and
   // standard deviation 1.
   if (!this->has_weights()) {
-    auto w = make_unique<data_type_weights<TensorDataType>>(this->get_comm());
+    auto w = make_unique<WeightsType>(this->get_comm());
     auto init = make_unique<normal_initializer<TensorDataType>>(0,1);
     auto opt = std::unique_ptr<optimizer>(dynamic_cast<data_type_optimizer<TensorDataType>*>(this->m_model->create_optimizer()));
     w->set_name(this->get_name() + "_weights");
