@@ -209,7 +209,7 @@ void embedding_layer<TensorDataType, Layout,Device>::setup_data() {
 
 #ifndef LBANN_EMBEDDING_LAYER_INSTANTIATE
 extern template class embedding_layer<
-  float, data_layout::DATA_PARALLEL, El::Device::CPU>;
+  DataType, data_layout::DATA_PARALLEL, El::Device::CPU>;
 #endif // LBANN_EMBEDDING_LAYER_INSTANTIATE
 
 } // namespace lbann
