@@ -57,8 +57,6 @@ namespace lbann {
  */
 template <typename TensorDataType>
 class data_type_weights : public weights {
-  friend class data_type_optimizer<TensorDataType>;
-
 public:
   /** @name Public Types */
   ///@{
@@ -192,6 +190,7 @@ private:
    */
   std::unique_ptr<OptimizerType> m_optimizer;
 
+  friend class data_type_optimizer<TensorDataType>;
 };
 
 } // namespace lbann
