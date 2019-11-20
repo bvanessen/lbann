@@ -128,13 +128,13 @@ protected:
           << "(found " << this->num_weights() << ", expected 2)";
       LBANN_ERROR(err.str());
     }
-    this->get_data_type_weights().resize(2, nullptr);
+    this->set_num_data_type_weights(2);
     if (!this->has_data_type_weights(0)) {
       auto w = make_unique<WeightsType>(this->get_comm());
       auto init = make_unique<constant_initializer<TensorDataType>>(TensorDataType{0});
       w->set_name(this->get_name() + "_running_mean");
       w->set_initializer(std::move(init));
-      this->set_data_type_weights(1, w.get());
+      this->set_data_type_weights(0, w.get());
       this->m_model->add_weights(std::move(w));
     }
     if (!this->has_data_type_weights(1)) {
