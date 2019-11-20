@@ -66,8 +66,14 @@ public:
   /** @brief The tensor type expected in this object. */
   using AbsDistMatrixType = El::AbstractDistMatrix<TensorDataType>;
 
-  /** @brief The concrete weights type used by this object. */
+  /** @brief This type. */
   using WeightsType = data_type_weights<TensorDataType>;
+
+  /** @brief The Optimizer type used by this object. */
+  using OptimizerType = data_type_optimizer<TensorDataType>;
+
+  /** @brief The Initializer type used by this object. */
+  using InitializerType = data_type_weights_initializer<TensorDataType>;
 
   ///@}
 
@@ -102,9 +108,9 @@ public:
   // Initializer accessors
   // -----------------------------------------------
   /** Get weights initializer. */
-  data_type_weights_initializer<TensorDataType>* get_initializer() override;
+  InitializerType* get_initializer() override;
   /** Get weights initializer (const). */
-  const data_type_weights_initializer<TensorDataType>* get_initializer() const override;
+  const InitializerType* get_initializer() const override;
   /** Set weights initializer.
    *  The contents of 'init' are moved to a class member.
    */
@@ -116,11 +122,11 @@ public:
   /** Get weights optimizer.
    *  Returns a null pointer if the weights are frozen.
    */
-  data_type_optimizer<TensorDataType>* get_optimizer() override;
+  OptimizerType* get_optimizer() override;
   /** Get weights optimizer.
    *  Returns a null pointer if the weights are frozen.
    */
-  const data_type_optimizer<TensorDataType>* get_optimizer() const override;
+  const OptimizerType* get_optimizer() const override;
   /** Set weights optimizer.
    *  The contents of opt are moved to a class member.
    */
@@ -180,11 +186,11 @@ private:
   /** Weights initializer.
    *  Default is nullptr, which corresponds to zero initialization.
    */
-  std::unique_ptr<data_type_weights_initializer<TensorDataType>> m_initializer;
+  std::unique_ptr<InitializerType> m_initializer;
   /** Weights optimizer.
    *  Default is nullptr, which corresponds to no optimizer.
    */
-  std::unique_ptr<data_type_optimizer<TensorDataType>> m_optimizer;
+  std::unique_ptr<OptimizerType> m_optimizer;
 
 };
 

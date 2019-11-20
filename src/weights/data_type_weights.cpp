@@ -146,16 +146,31 @@ void data_type_weights<TensorDataType>::set_dims(std::vector<int> matrix_height_
 // -----------------------------------------------
 
 template <typename TensorDataType>
-data_type_weights_initializer<TensorDataType>* data_type_weights<TensorDataType>::get_initializer() {
-  return const_cast<data_type_weights_initializer<TensorDataType>*>(static_cast<const data_type_weights&>(*this).get_initializer());
+auto data_type_weights<TensorDataType>::get_initializer() -> InitializerType* {
+  return const_cast<InitializerType*>(static_cast<const data_type_weights&>(*this).get_initializer());
 }
 template <typename TensorDataType>
-const data_type_weights_initializer<TensorDataType>* data_type_weights<TensorDataType>::get_initializer() const {
+auto data_type_weights<TensorDataType>::get_initializer() const
+  -> const InitializerType* {
   return m_initializer.get();
 }
 template <typename TensorDataType>
-void data_type_weights<TensorDataType>::set_initializer(std::unique_ptr<weights_initializer>&& init) {
-  m_initializer = std::move(reinterpret_cast<std::unique_ptr<data_type_weights_initializer<TensorDataType>>&&>(init));
+void data_type_weights<TensorDataType>::set_initializer(
+  std::unique_ptr<weights_initializer>&& init) {
+  using InitializerPtrType = InitializerType*;
+  // Verify the dynamic type is compatible
+  if (init && dynamic_cast<InitializerPtrType>(init.get()))
+    // Safely transfer the memory; both release() and reset() are
+    // noexcept so this is memory-safe. The dynamic_cast in the if
+    // statement verifies the dynamic type; no need to redo it.
+    m_initializer.reset(static_cast<InitializerPtrType>(init.release()));
+  else if (init)
+    // The provided pointer was not null, but the dynamic_cast
+    // failed. This is an error.
+    LBANN_ERROR("Initializer has incompatible dynamic type.");
+  else
+    // The provided pointer was null. Set the held pointer to null.
+    m_initializer.reset();
 }
 
 // -----------------------------------------------
@@ -163,12 +178,14 @@ void data_type_weights<TensorDataType>::set_initializer(std::unique_ptr<weights_
 // -----------------------------------------------
 
 template <typename TensorDataType>
-data_type_optimizer<TensorDataType>* data_type_weights<TensorDataType>::get_optimizer() {
-  return const_cast<data_type_optimizer<TensorDataType>*>(
+auto data_type_weights<TensorDataType>::get_optimizer()
+  -> OptimizerType* {
+  return const_cast<OptimizerType*>(
            static_cast<const WeightsType&>(*this).get_optimizer());
 }
 template <typename TensorDataType>
-const data_type_optimizer<TensorDataType>* data_type_weights<TensorDataType>::get_optimizer() const {
+auto data_type_weights<TensorDataType>::get_optimizer() const
+  -> const OptimizerType* {
   if (is_frozen()) {
     return nullptr;
   } else {
@@ -176,8 +193,15 @@ const data_type_optimizer<TensorDataType>* data_type_weights<TensorDataType>::ge
   }
 }
 template <typename TensorDataType>
-void data_type_weights<TensorDataType>::set_optimizer(std::unique_ptr<optimizer>&& opt) {
-  m_optimizer = std::move(reinterpret_cast<std::unique_ptr<data_type_optimizer<TensorDataType>>&&>(opt));
+void data_type_weights<TensorDataType>::set_optimizer(
+  std::unique_ptr<optimizer>&& opt) {
+  using OptimizerPtrType = OptimizerType*;
+  if (opt && dynamic_cast<OptimizerPtrType>(opt.get()))
+    m_optimizer.reset(static_cast<OptimizerPtrType>(opt.release()));
+  else if (opt)
+    LBANN_ERROR("Optimizer has incompatible dynamic type");
+  else
+    m_optimizer.reset();
 }
 
 // -----------------------------------------------
