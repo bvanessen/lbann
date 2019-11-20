@@ -40,23 +40,26 @@
 
 namespace {
 
-/** Get string describing tensor dimensions.
+/** @brief Get a string version of tensor dimensions */
+std::string stringify_dims(const std::vector<int>& dims)
+{
+  std::ostringstream oss;
+  oss << dims.front();
+  for (size_t i = 1; i < dims.size(); ++i)
+    oss << "x" << dims[i];
+  return oss.str();
+}
+
+/** @brief Get string describing tensor dimensions.
  *  The tensor is stored in a matrix, although there may be multiple
  *  dimensions corresponding to the matrix height and width.
  */
 std::string get_dims_string(const std::vector<int>& matrix_height_dims,
                             const std::vector<int>& matrix_width_dims) {
-  std::stringstream ss;
-  ss << "(";
-  for (size_t i = 0; i < matrix_height_dims.size(); ++i) {
-    ss << (i > 0 ? "x" : "") << matrix_height_dims[i];
-  }
-  ss << ")x(";
-  for (size_t i = 0; i < matrix_width_dims.size(); ++i) {
-    ss << (i > 0 ? "x" : "") << matrix_width_dims[i];
-  }
-  ss << ")";
-  return ss.str();
+  std::ostringstream oss;
+  oss << "(" << stringify_dims(matrix_height_dims) << ")x"
+      << "(" << stringify_dims(matrix_width_dims) << ")";
+  return oss.str();
 }
 
 } // namespace
@@ -128,14 +131,12 @@ void data_type_weights<TensorDataType>::set_dims(std::vector<int> matrix_height_
     const auto& height = get_matrix_height();
     const auto& width = get_matrix_width();
     if (m_values->Height() != height || m_values->Width() != width) {
-      std::stringstream err;
-      err << "attempted to set weights \"" << get_name() << "\" "
-          << "with dimensions "
-          << get_dims_string(matrix_height_dims, matrix_width_dims) << ", "
-          << "but it is already setup with a "
-          << m_values->Height() << " x " << m_values->Width() << " "
-          << "weights matrix";
-      LBANN_ERROR(err.str());
+      LBANN_ERROR("attempted to set weights \"", get_name(), "\" "
+                  "with dimensions ",
+                  get_dims_string(matrix_height_dims, matrix_width_dims), ", "
+                  "but it is already setup with a ",
+                  m_values->Height(), " x ", m_values->Width(), " "
+                  "weights matrix");
     }
   }
 }
@@ -193,13 +194,13 @@ void data_type_weights<TensorDataType>::setup() {
   auto matrix_dist = get_matrix_distribution();
   // Construct weights matrix
   m_values.reset(AbsDistMatrixType::Instantiate(*matrix_dist.grid,
-                                                                     matrix_dist.root,
-                                                                     matrix_dist.colDist,
-                                                                     matrix_dist.rowDist,
-                                                                     (matrix_dist.blockHeight == 1
-                                                                      && matrix_dist.blockWidth == 1 ?
-                                                                      El::ELEMENT : El::BLOCK),
-                                                                     matrix_dist.device));
+                                                matrix_dist.root,
+                                                matrix_dist.colDist,
+                                                matrix_dist.rowDist,
+                                                (matrix_dist.blockHeight == 1
+                                                 && matrix_dist.blockWidth == 1 ?
+                                                 El::ELEMENT : El::BLOCK),
+                                                matrix_dist.device));
   m_values->AlignWith(matrix_dist);
   m_values->Resize(get_matrix_height(), get_matrix_width());
   if (m_initializer != nullptr) {
@@ -224,7 +225,8 @@ auto data_type_weights<TensorDataType>::get_values() -> AbsDistMatrixType& {
   return const_cast<AbsDistMatrixType&>(static_cast<const data_type_weights&>(*this).get_values());
 }
 template <typename TensorDataType>
-auto data_type_weights<TensorDataType>::get_values() const -> const AbsDistMatrixType& {
+auto data_type_weights<TensorDataType>::get_values() const
+  -> const AbsDistMatrixType& {
   if (m_values == nullptr) {
     LBANN_ERROR("attempted to access values of "
                 "weights \"" + get_name() + "\" "
@@ -245,12 +247,10 @@ void data_type_weights<TensorDataType>::set_value(TensorDataType value, int inde
   // Check that tensor position is valid
   const auto& size = get_size();
   if (index < 0 || index >= size) {
-    std::stringstream err;
-    err << "attempted to set value in "
-        << "weights \"" << get_name() << "\""
-        << "at index " << index << ", "
-        << "but there are " << size << " values";
-    LBANN_ERROR(err.str());
+    LBANN_ERROR("attempted to set value in "
+                "weights \"", get_name(), "\""
+                "at index ", index, ", "
+                "but there are ", size, " values");
   }
 #endif // LBANN_DEBUG
 
@@ -273,19 +273,11 @@ void data_type_weights<TensorDataType>::set_value(TensorDataType value, std::vec
     valid = valid && pos[i] >= 0 && pos[i] < dims[i];
   }
   if (!valid) {
-    std::stringstream err;
-    err << "attempted to set value in "
-        << "weights \"" << get_name() << "\""
-        << "at position (";
-    for (size_t i = 0 ; i < pos.size(); ++i) {
-      err << (i > 0 ? "x" : "") << pos[i];
-    }
-    err << ") in a tensor with dimensions ";
-    for (size_t i = 0 ; i < dims.size(); ++i) {
-      err << (i > 0 ? "x" : "") << dims[i];
-    }
-    LBANN_ERROR(err.str());
-  }
+    LBANN_ERROR("attempted to set value in "
+                "weights \"", get_name(), "\""
+                "at position (", stringify_dims(pos), ") "
+                "in a tensor with dimensions ", stringify_dims(dims));
+      }
 #endif // LBANN_DEBUG
 
   // Get index of weight value and set
@@ -294,7 +286,6 @@ void data_type_weights<TensorDataType>::set_value(TensorDataType value, std::vec
     index = index * dims[i] + pos[i];
   }
   set_value(value, index);
-
 }
 
 template <typename TensorDataType>
@@ -305,12 +296,10 @@ void data_type_weights<TensorDataType>::set_value(TensorDataType value, int row,
   const auto& height = get_matrix_height();
   const auto& width = get_matrix_width();
   if (row < 0 || row >= height || col < 0 || col > width ) {
-    std::stringstream err;
-    err << "attempted to set weights value "
-        << "in weights \"" << get_name() << "\""
-        << "at entry (" << row << "," << col << ") "
-        << "in a " << height << "x" << width << " matrix";
-    LBANN_ERROR(err.str());
+    LBANN_ERROR("attempted to set weights value "
+                "in weights \"", get_name(), "\""
+                "at entry (", row, ",", col, ") "
+                "in a ", height, "x", width, " matrix");
   }
 #endif // LBANN_DEBUG
 
