@@ -31,6 +31,9 @@
 
 namespace lbann {
 
+template <typename> class data_type_optimizer;
+template <typename> class data_type_weights;
+
 /** @class l2_weight_regularization
  *  @brief Apply L2 regularization to a set of weights.
  *

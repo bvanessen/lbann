@@ -26,6 +26,7 @@
 
 #include "lbann/proto/factories.hpp"
 
+#include "lbann/weights/data_type_weights.hpp"
 #include "lbann/weights/initializer.hpp"
 #include "lbann/weights/variance_scaling_initializers.hpp"
 

@@ -29,6 +29,8 @@
 #ifdef LBANN_HAS_GPU
 #include "lbann/utils/cublas.hpp"
 #endif // LBANN_HAS_GPU
+#include "lbann/optimizers/data_type_optimizer.hpp"
+#include "lbann/weights/data_type_weights.hpp"
 
 namespace lbann {
 
