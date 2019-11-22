@@ -473,43 +473,23 @@ struct logical_xor_op {
 } // namespace
 
 // Template instantiation
-#define INSTANTIATE(layer, op)                                                                           \
-  template <typename TensorDataType>                                                                     \
-  void fp_compute_impl(layer<TensorDataType, data_layout::MODEL_PARALLEL, El::Device::GPU>& l) {         \
-    cuda::apply_entrywise_binary_operator<TensorDataType, op<TensorDataType>>(l.get_prev_activations(0), \
-                                                              l.get_prev_activations(1),                 \
-                                                              l.get_activations());                      \
-  }                                                                                                      \
-  template <typename TensorDataType>                                                                     \
-  void bp_compute_impl(layer<TensorDataType, data_layout::MODEL_PARALLEL, El::Device::GPU>& l) {         \
-    apply_binary_backprop_operator<TensorDataType, op<TensorDataType>>(l.get_local_prev_activations(0),  \
-                                                       l.get_local_prev_activations(1),                  \
-                                                       l.get_local_prev_error_signals(),                 \
-                                                       l.get_local_error_signals(0),                     \
-                                                       l.get_local_error_signals(1));                    \
-  }                                                                                                      \
-  template <typename TensorDataType>                                                                     \
-  void fp_compute_impl(layer<TensorDataType, data_layout::DATA_PARALLEL, El::Device::GPU>& l) {          \
-    cuda::apply_entrywise_binary_operator<TensorDataType, op<TensorDataType>>(l.get_prev_activations(0), \
-                                              l.get_prev_activations(1),                                 \
-                                              l.get_activations());                                      \
-  }                                                                                                      \
-  template <typename TensorDataType>                                                                     \
-  void bp_compute_impl(layer<TensorDataType, data_layout::DATA_PARALLEL, El::Device::GPU>& l) {          \
-    apply_binary_backprop_operator<TensorDataType, op<TensorDataType>>(l.get_local_prev_activations(0),  \
-                                       l.get_local_prev_activations(1),                                  \
-                                       l.get_local_prev_error_signals(),                                 \
-                                       l.get_local_error_signals(0),                                     \
-                                       l.get_local_error_signals(1));                                    \
-  }                                                                                                      \
-  template <typename TensorDataType, data_layout Layout, El::Device Device>                              \
-  void layer<TensorDataType, Layout, Device>::fp_compute() {                                             \
-    fp_compute_impl<TensorDataType>(*this);                                                              \
-  }                                                                                                      \
-  template <typename TensorDataType, data_layout Layout, El::Device Device>                              \
-  void layer<TensorDataType, Layout, Device>::bp_compute() {                                             \
-    bp_compute_impl<TensorDataType>(*this);                                                              \
-  }                                                                                                      \
+#define INSTANTIATE(layer, op)                                          \
+  template <typename TensorDataType, data_layout Layout, El::Device Device> \
+  void layer<TensorDataType, Layout, Device>::fp_compute() {            \
+    cuda::apply_entrywise_binary_operator<op<TensorDataType>>(          \
+      l.get_prev_activations(0),                                        \
+      l.get_prev_activations(1),                                        \
+      l.get_activations());                                             \
+  }                                                                     \
+  template <typename TensorDataType, data_layout Layout, El::Device Device> \
+  void layer<TensorDataType, Layout, Device>::bp_compute() {            \
+    apply_binary_backprop_operator<op<TensorDataType>>(                 \
+      l.get_local_prev_activations(0),                                  \
+      l.get_local_prev_activations(1),                                  \
+      l.get_local_prev_error_signals(),                                 \
+      l.get_local_error_signals(0),                                     \
+      l.get_local_error_signals(1));                                    \
+  }                                                                     \
   BINARY_ETI_INST_MACRO_DEV(layer, El::Device::GPU)
 
 INSTANTIATE(add_layer, add_op);
