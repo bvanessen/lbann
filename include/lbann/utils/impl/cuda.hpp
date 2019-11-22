@@ -248,7 +248,7 @@ SPECIFIERS double infinity<double>() { return CUDART_INF;   }
 #ifdef __CUDACC__
 
 /** CUDA kernel to apply an entry-wise unary operator. */
-template <typename TensorDataType, typename UnaryOperator>
+template <typename UnaryOperator, typename TensorDataType>
 __global__
 void entrywise_unary_operator_kernel(El::Int height, El::Int width,
                                      const TensorDataType* __restrict__ input,
@@ -269,7 +269,7 @@ void entrywise_unary_operator_kernel(El::Int height, El::Int width,
 }
 
 /** CUDA kernel to apply an entry-wise binary operator. */
-template <typename TensorDataType, typename BinaryOperator>
+template <typename BinaryOperator, typename TensorDataType>
 __global__
 void entrywise_binary_operator_kernel(El::Int height, El::Int width,
                                      const TensorDataType* __restrict__ input1,
@@ -296,23 +296,23 @@ void entrywise_binary_operator_kernel(El::Int height, El::Int width,
  *  The input and output data must be on GPU and must have the same
  *  dimensions.
  */
-template <typename TensorDataType, typename UnaryOperator>
-void apply_entrywise_unary_operator(const El::AbstractMatrix<TensorDataType>& input,
-                                    El::AbstractMatrix<TensorDataType>& output) {
+template <template <typename> class Op, typename TensorDataType>
+void apply_entrywise_unary_operator(
+  const El::AbstractMatrix<TensorDataType>& input,
+  El::AbstractMatrix<TensorDataType>& output) {
+  using UnaryOperator = Op<TensorDataType>;
 
   // Check that input and output are valid
-  std::stringstream err;
   if (input.GetDevice() != El::Device::GPU) {
     LBANN_ERROR("input is not on GPU");
   } else if (output.GetDevice() != El::Device::GPU) {
     LBANN_ERROR("output is not on GPU");
   } else if (input.Height() != output.Height()
              || input.Width() != output.Width()) {
-    err << "input matrix dimensions "
-        << "(" << input.Height() << " x " << input.Width() << ")"
-        << "don't match output matrix dimensions "
-        << "(" << output.Height() << " x " << output.Width() << ")";
-    LBANN_ERROR(err.str());
+    LBANN_ERROR("input matrix dimensions "
+                "(", input.Height(), " x ", input.Width(), ")"
+                "don't match output matrix dimensions "
+                "(", output.Height(), " x ", output.Width(), ")");
   }
 
   // Get CUDA grid dimensions
@@ -330,7 +330,7 @@ void apply_entrywise_unary_operator(const El::AbstractMatrix<TensorDataType>& in
   // Launch CUDA kernel
   if (grid_dim > 0) {
     CHECK_CUDA(cudaSetDevice(El::GPUManager::Device()));
-    entrywise_unary_operator_kernel<TensorDataType, UnaryOperator>
+    entrywise_unary_operator_kernel<UnaryOperator>
       <<<grid_dim, block_dim, 0, El::GPUManager::Stream()>>>(
         height, width, input.LockedBuffer(), input.LDim(),
         output.Buffer(), output.LDim());
@@ -342,13 +342,14 @@ void apply_entrywise_unary_operator(const El::AbstractMatrix<TensorDataType>& in
  *  The input and output data must be on GPU and must have the same
  *  dimensions.
  */
-template <typename TensorDataType, typename BinaryOperator>
-void apply_entrywise_binary_operator(const El::AbstractMatrix<TensorDataType>& input1,
-                                     const El::AbstractMatrix<TensorDataType>& input2,
-                                     El::AbstractMatrix<TensorDataType>& output) {
+template <template <typename> class Op, typename TensorDataType>
+void apply_entrywise_binary_operator(
+  const El::AbstractMatrix<TensorDataType>& input1,
+  const El::AbstractMatrix<TensorDataType>& input2,
+  El::AbstractMatrix<TensorDataType>& output) {
+  using BinaryOperator = Op<TensorDataType>;
 
   // Check that input and output are valid
-  std::stringstream err;
   if (input1.GetDevice() != El::Device::GPU
       || input2.GetDevice() != El::Device::GPU) {
     LBANN_ERROR("input is not on GPU");
@@ -358,12 +359,11 @@ void apply_entrywise_binary_operator(const El::AbstractMatrix<TensorDataType>& i
              || input1.Width() != input2.Width()
              || input1.Height() != output.Height()
              || input1.Width() != output.Width()) {
-    err << "input matrix dimensions "
-        << "(" << input1.Height() << " x " << input1.Width() << ", "
-        << input2.Height() << " x " << input2.Width() << ")"
-        << "don't match output matrix dimensions "
-        << "(" << output.Height() << " x " << output.Width() << ")";
-    LBANN_ERROR(err.str());
+    LBANN_ERROR("input matrix dimensions "
+                "(", input1.Height(), " x ", input1.Width(), ", ",
+                input2.Height(), " x ", input2.Width(), ")"
+                "don't match output matrix dimensions "
+                "(", output.Height(), " x ", output.Width(), ")");
   }
 
   // Get CUDA grid dimensions
@@ -381,7 +381,7 @@ void apply_entrywise_binary_operator(const El::AbstractMatrix<TensorDataType>& i
   // Launch CUDA kernel
   if (grid_dim > 0) {
     CHECK_CUDA(cudaSetDevice(El::GPUManager::Device()));
-    entrywise_binary_operator_kernel<TensorDataType, BinaryOperator>
+    entrywise_binary_operator_kernel<BinaryOperator>
       <<<grid_dim, block_dim, 0, El::GPUManager::Stream()>>>(
         height, width,
         input1.LockedBuffer(), input1.LDim(),
@@ -395,50 +395,48 @@ void apply_entrywise_binary_operator(const El::AbstractMatrix<TensorDataType>& i
  *  The input and output data must be on GPU, have the same
  *  dimensions, and be aligned.
  */
-template <typename TensorDataType, typename UnaryOperator>
-void apply_entrywise_unary_operator(const El::AbstractDistMatrix<TensorDataType>& input,
-                                    El::AbstractDistMatrix<TensorDataType>& output) {
-  std::stringstream err;
+template <template <typename> class UnaryOperator, typename TensorDataType>
+void apply_entrywise_unary_operator(
+  const El::AbstractDistMatrix<TensorDataType>& input,
+  El::AbstractDistMatrix<TensorDataType>& output) {
   if (input.Height() != output.Height()
       || input.Width() != output.Width()) {
-    err << "input matrix dimensions "
-        << "(" << input.Height() << " x " << input.Width() << ")"
-        << "don't match output matrix dimensions "
-        << "(" << output.Height() << " x " << output.Width() << ")";
-    LBANN_ERROR(err.str());
+    LBANN_ERROR("input matrix dimensions "
+                "(", input.Height(), " x ", input.Width(), ")"
+                "don't match output matrix dimensions "
+                "(", output.Height(), " x ", output.Width(), ")");
   } else if (input.DistData() != output.DistData()) {
     LBANN_ERROR("input and output matrix distributions don't match");
   }
-  apply_entrywise_unary_operator<TensorDataType, UnaryOperator>(input.LockedMatrix(),
-                                                                output.Matrix());
+  apply_entrywise_unary_operator<UnaryOperator>(input.LockedMatrix(),
+                                                output.Matrix());
 }
 
 /** Apply an entry-wise binary operator to GPU data.
  *  The input and output data must be on GPU, have the same
  *  dimensions, and be aligned.
  */
-template <typename TensorDataType, typename BinaryOperator>
-void apply_entrywise_binary_operator(const El::AbstractDistMatrix<TensorDataType>& input1,
-                                     const El::AbstractDistMatrix<TensorDataType>& input2,
-                                     El::AbstractDistMatrix<TensorDataType>& output) {
+template <template <typename> class BinaryOperator, typename TensorDataType>
+void apply_entrywise_binary_operator(
+  const El::AbstractDistMatrix<TensorDataType>& input1,
+  const El::AbstractDistMatrix<TensorDataType>& input2,
+  El::AbstractDistMatrix<TensorDataType>& output) {
   if (input1.Height() != input2.Height()
       || input1.Width() != input2.Width()
       || input1.Height() != output.Height()
       || input1.Width() != output.Width()) {
-    std::stringstream err;
-    err << "input matrix dimensions "
-        << "(" << input1.Height() << " x " << input1.Width() << ", "
-        << input2.Height() << " x " << input2.Width() << ")"
-        << "don't match output matrix dimensions "
-        << "(" << output.Height() << " x " << output.Width() << ")";
-    LBANN_ERROR(err.str());
+    LBANN_ERROR("input matrix dimensions "
+                "(", input1.Height(), " x ", input1.Width(), ", ",
+                input2.Height(), " x ", input2.Width(), ")"
+                "don't match output matrix dimensions "
+                "(", output.Height(), " x ", output.Width(), ")");
   } else if (input1.DistData() != input2.DistData()
              || input1.DistData() != output.DistData()) {
     LBANN_ERROR("input and output matrix distributions don't match");
   }
-  apply_entrywise_binary_operator<TensorDataType, BinaryOperator>(input1.LockedMatrix(),
-                                                                  input2.LockedMatrix(),
-                                                                  output.Matrix());
+  apply_entrywise_binary_operator<BinaryOperator>(input1.LockedMatrix(),
+                                                  input2.LockedMatrix(),
+                                                  output.Matrix());
 }
 
 #endif // __CUDACC__

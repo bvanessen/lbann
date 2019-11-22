@@ -221,7 +221,7 @@ private:
  *  The input and output data must be on GPU and must have the same
  *  dimensions.
  */
-template <typename UnaryOperator, typename TensorDataType>
+template <template <typename> class UnaryOperator, typename TensorDataType>
 void apply_entrywise_unary_operator(
   const El::AbstractMatrix<TensorDataType>& input,
   El::AbstractMatrix<TensorDataType>& output);
@@ -230,7 +230,7 @@ void apply_entrywise_unary_operator(
  *  The input and output data must be on GPU and must have the same
  *  dimensions.
  */
-template <typename BinaryOperator, typename TensorDataType>
+template <template <typename> class BinaryOperator, typename TensorDataType>
 void apply_entrywise_binary_operator(
   const El::AbstractMatrix<TensorDataType>& input1,
   const El::AbstractMatrix<TensorDataType>& input2,
@@ -241,7 +241,7 @@ void apply_entrywise_binary_operator(
  *  The input and output data must be on GPU, have the same
  *  dimensions, and be aligned.
  */
-template <typename UnaryOperator, typename TensorDataType>
+template <template <typename> class UnaryOperator, typename TensorDataType>
 void apply_entrywise_unary_operator(
   const El::AbstractDistMatrix<TensorDataType>& input,
   El::AbstractDistMatrix<TensorDataType>& output);
@@ -250,7 +250,7 @@ void apply_entrywise_unary_operator(
  *  The input and output data must be on GPU, have the same
  *  dimensions, and be aligned.
  */
-template <typename BinaryOperator, typename TensorDataType>
+template <template <typename> class BinaryOperator, typename TensorDataType>
 void apply_entrywise_binary_operator(
   const El::AbstractDistMatrix<TensorDataType>& input1,
   const El::AbstractDistMatrix<TensorDataType>& input2,

@@ -476,14 +476,14 @@ struct logical_xor_op {
 #define INSTANTIATE(layer, op)                                          \
   template <typename TensorDataType, data_layout Layout, El::Device Device> \
   void layer<TensorDataType, Layout, Device>::fp_compute() {            \
-    cuda::apply_entrywise_binary_operator<op<TensorDataType>>(          \
+    cuda::apply_entrywise_binary_operator<op>(                          \
       l.get_prev_activations(0),                                        \
       l.get_prev_activations(1),                                        \
       l.get_activations());                                             \
   }                                                                     \
   template <typename TensorDataType, data_layout Layout, El::Device Device> \
   void layer<TensorDataType, Layout, Device>::bp_compute() {            \
-    apply_binary_backprop_operator<op<TensorDataType>>(                 \
+    apply_binary_backprop_operator<op>(                                 \
       l.get_local_prev_activations(0),                                  \
       l.get_local_prev_activations(1),                                  \
       l.get_local_prev_error_signals(),                                 \

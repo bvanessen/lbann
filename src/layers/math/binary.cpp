@@ -40,13 +40,14 @@ namespace {
  *  \f$ dL/dx_2 \f$. The last two arguments should be overwritten when
  *  the BinaryBackPropOperator is called.
  */
-template <typename BinaryBackPropOperator, typename TensorDataType>
+template <template <typename> class Op, typename TensorDataType>
 void apply_binary_backprop_operator(
   const El::AbstractMatrix<TensorDataType>& x1,
   const El::AbstractMatrix<TensorDataType>& x2,
   const El::AbstractMatrix<TensorDataType>& dy,
   El::AbstractMatrix<TensorDataType>& dx1,
   El::AbstractMatrix<TensorDataType>& dx2) {
+  using BinaryBackPropOperator = Op<TensorDataType>;
   if (x1.Contiguous() && x2.Contiguous() && dy.Contiguous()
       && dx1.Contiguous() && dx2.Contiguous()) {
     const auto* x1_buffer = x1.LockedBuffer();
@@ -448,14 +449,14 @@ struct logical_xor_op {
 #define INSTANTIATE(layer, op)                                          \
   template <typename TensorDataType, data_layout Layout, El::Device Device> \
   void layer<TensorDataType, Layout, Device>::fp_compute() {            \
-    apply_entrywise_binary_operator<op<TensorDataType>>(                \
+    apply_entrywise_binary_operator<op>(                                \
       this->get_prev_activations(0),                                    \
       this->get_prev_activations(1),                                    \
       this->get_activations());                                         \
   }                                                                     \
   template <typename TensorDataType, data_layout Layout, El::Device Device> \
   void layer<TensorDataType, Layout, Device>::bp_compute() {            \
-    apply_binary_backprop_operator<op<TensorDataType>>(                 \
+    apply_binary_backprop_operator<op>(                                 \
       this->get_local_prev_activations(0),                              \
       this->get_local_prev_activations(1),                              \
       this->get_local_prev_error_signals(),                             \

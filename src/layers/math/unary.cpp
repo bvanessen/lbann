@@ -371,13 +371,13 @@ struct atanh_op {
 #define INSTANTIATE(layer, op)                                          \
   template <typename TensorDataType, data_layout Layout, El::Device Device> \
   void layer<TensorDataType, Layout, Device>::fp_compute() {            \
-    apply_entrywise_unary_operator<op<TensorDataType>>(                 \
+    apply_entrywise_unary_operator<op>(                                 \
       this->get_prev_activations(),                                     \
       this->get_activations());                                         \
   }                                                                     \
   template <typename TensorDataType, data_layout Layout, El::Device Device> \
   void layer<TensorDataType, Layout, Device>::bp_compute() {            \
-    apply_entrywise_binary_operator<op<TensorDataType>>(                \
+    apply_entrywise_binary_operator<op>(                                \
       this->get_prev_activations(),                                     \
       this->get_prev_error_signals(),                                   \
       this->get_error_signals());                                       \
