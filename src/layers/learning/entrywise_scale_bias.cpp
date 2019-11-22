@@ -68,6 +68,7 @@ void bp_impl(
   El::Matrix<TensorDataType, El::Device::CPU>& local_gradient_wrt_input,
   data_type_weights<TensorDataType>& scale_bias,
   El::AbstractDistMatrix<TensorDataType>& gradient_wrt_scale_bias) {
+
   using CPUMatType = El::Matrix<TensorDataType, El::Device::CPU>;
 
   // Local matrices

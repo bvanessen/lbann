@@ -119,8 +119,7 @@ void fp_impl(const El::Matrix<TensorDataType, El::Device::GPU>& local_input,
     block_dims.y = block_size_y;
     grid_dims.x = (local_height + block_size_x - 1) / block_size_x;
     grid_dims.y = (local_width + block_size_y - 1) / block_size_y;
-    fp_kernel
-      <<<grid_dims, block_dims, 0, El::GPUManager::Stream()>>>(
+    fp_kernel<<<grid_dims, block_dims, 0, El::GPUManager::Stream()>>>(
         local_height, local_width,
         local_input.LockedBuffer(), local_input.LDim(),
         local_output.Buffer(), local_output.LDim(),
@@ -137,11 +136,13 @@ void bp_impl(const El::Matrix<TensorDataType, El::Device::GPU>& local_input,
              data_type_weights<TensorDataType>& scale_bias,
              El::AbstractDistMatrix<TensorDataType>& gradient_wrt_scale_bias) {
 
+  using GPUMatType = El::Matrix<TensorDataType, El::Device::GPU>;
+
   // Local matrices
   const auto& local_scale_bias
-    = dynamic_cast<const El::Matrix<TensorDataType, El::Device::GPU>&>(scale_bias.get_values().LockedMatrix());
+    = dynamic_cast<const GPUMatType&>(scale_bias.get_values().LockedMatrix());
   auto& local_gradient_wrt_scale_bias
-    = dynamic_cast<El::Matrix<TensorDataType, El::Device::GPU>&>(gradient_wrt_scale_bias.Matrix());
+    = dynamic_cast<GPUMatType&>(gradient_wrt_scale_bias.Matrix());
   const auto local_scale = El::LockedView(local_scale_bias,
                                           El::ALL, El::IR(0));
   auto local_gradient_wrt_scale = El::View(local_gradient_wrt_scale_bias,
@@ -158,15 +159,14 @@ void bp_impl(const El::Matrix<TensorDataType, El::Device::GPU>& local_input,
     dim3 block_dims, grid_dims;
     block_dims.x = block_size;
     grid_dims.x = (local_height + block_size - 1) / block_size;
-    bp_kernel
-      <<<grid_dims, block_dims, 0, El::GPUManager::Stream()>>>(
-        local_height, local_width,
-        local_input.LockedBuffer(), local_input.LDim(),
-        local_gradient_wrt_output.LockedBuffer(), local_gradient_wrt_output.LDim(),
-        local_gradient_wrt_input.Buffer(), local_gradient_wrt_input.LDim(),
-        local_scale.LockedBuffer(),
-        local_gradient_wrt_scale.Buffer(),
-        local_gradient_wrt_bias.Buffer());
+    bp_kernel <<<grid_dims, block_dims, 0, El::GPUManager::Stream()>>>(
+      local_height, local_width,
+      local_input.LockedBuffer(), local_input.LDim(),
+      local_gradient_wrt_output.LockedBuffer(), local_gradient_wrt_output.LDim(),
+      local_gradient_wrt_input.Buffer(), local_gradient_wrt_input.LDim(),
+      local_scale.LockedBuffer(),
+      local_gradient_wrt_scale.Buffer(),
+      local_gradient_wrt_bias.Buffer());
   }
 
   // Update optimizer with gradient
