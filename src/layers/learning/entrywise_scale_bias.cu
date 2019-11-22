@@ -184,19 +184,19 @@ void bp_impl(const El::Matrix<TensorDataType, El::Device::GPU>& local_input,
 template <typename TensorDataType, data_layout Layout, El::Device Device>
 void entrywise_scale_bias_layer<TensorDataType, Layout, Device>::fp_compute() {
   using LocalMatType = El::Matrix<TensorDataType, Device>;
-  fp_impl(dynamic_cast<const LocalMatType&>(l.get_local_prev_activations()),
-          dynamic_cast<LocalMatType&>(l.get_local_activations()),
-          l.get_data_type_weights(0));
+  fp_impl(dynamic_cast<const LocalMatType&>(this->get_local_prev_activations()),
+          dynamic_cast<LocalMatType&>(this->get_local_activations()),
+          this->get_data_type_weights(0));
 }
 
 template <typename TensorDataType, data_layout Layout, El::Device Device>
 void entrywise_scale_bias_layer<TensorDataType, Layout, Device>::bp_compute() {
   using LocalMatType = El::Matrix<TensorDataType, Device>;
-  bp_impl(dynamic_cast<const LocalMatType&>(l.get_local_prev_activations()),
-          dynamic_cast<const LocalMatType&>(l.get_local_prev_error_signals()),
-          dynamic_cast<LocalMatType&>(l.get_local_error_signals()),
-          l.get_data_type_weights(0),
-          *l.m_weights_gradient);
+  bp_impl(dynamic_cast<const LocalMatType&>(this->get_local_prev_activations()),
+          dynamic_cast<const LocalMatType&>(this->get_local_prev_error_signals()),
+          dynamic_cast<LocalMatType&>(this->get_local_error_signals()),
+          this->get_data_type_weights(0),
+          *this->m_weights_gradient);
 }
 
 template class entrywise_scale_bias_layer<

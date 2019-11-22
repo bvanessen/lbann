@@ -33,7 +33,8 @@ namespace lbann {
 namespace {
 
 /** CUDA kernel to apply an binary backprop operator. */
-template <typename TensorDataType, typename BinaryBackPropOperator>
+template <template <typename> class BinaryBackPropOperator,
+          typename TensorDataType>
 __global__
 void binary_backprop_operator_kernel(El::Int height, El::Int width,
                                      const TensorDataType* __restrict__ x1,
@@ -49,7 +50,7 @@ void binary_backprop_operator_kernel(El::Int height, El::Int width,
   const El::Int gid = threadIdx.x + blockIdx.x * blockDim.x;
   const El::Int size = height * width;
   const El::Int num_threads = blockDim.x * gridDim.x;
-  BinaryBackPropOperator op;
+  BinaryBackPropOperator<TensorDataType> op;
   for (El::Int pos = gid; pos < size; pos += num_threads) {
     const auto& row = pos % height;
     const auto& col = pos / height;
@@ -69,12 +70,13 @@ void binary_backprop_operator_kernel(El::Int height, El::Int width,
  *  \f$ dL/dx_2 \f$. The last two arguments should be overwritten when
  *  the BinaryBackPropOperator is called.
  */
-template <typename TensorDataType, typename BinaryBackPropOperator>
-void apply_binary_backprop_operator(const El::AbstractMatrix<TensorDataType>& x1,
-                                    const El::AbstractMatrix<TensorDataType>& x2,
-                                    const El::AbstractMatrix<TensorDataType>& dy,
-                                    El::AbstractMatrix<TensorDataType>& dx1,
-                                    El::AbstractMatrix<TensorDataType>& dx2) {
+template <template <typename> class Op, typename TensorDataType>
+void apply_binary_backprop_operator(
+  const El::AbstractMatrix<TensorDataType>& x1,
+  const El::AbstractMatrix<TensorDataType>& x2,
+  const El::AbstractMatrix<TensorDataType>& dy,
+  El::AbstractMatrix<TensorDataType>& dx1,
+  El::AbstractMatrix<TensorDataType>& dx2) {
 
   // Get CUDA grid dimensions
   // Note: Maximum CUDA grid dimension is 2^32-1
@@ -91,7 +93,7 @@ void apply_binary_backprop_operator(const El::AbstractMatrix<TensorDataType>& x1
   // Launch CUDA kernel
   if (grid_dim > 0) {
     CHECK_CUDA(cudaSetDevice(El::GPUManager::Device()));
-    binary_backprop_operator_kernel<TensorDataType, BinaryBackPropOperator>
+    binary_backprop_operator_kernel<Op>
       <<<grid_dim, block_dim, 0, El::GPUManager::Stream()>>>(
         height, width,
         x1.LockedBuffer(), x1.LDim(),

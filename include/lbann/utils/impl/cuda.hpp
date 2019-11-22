@@ -248,7 +248,7 @@ SPECIFIERS double infinity<double>() { return CUDART_INF;   }
 #ifdef __CUDACC__
 
 /** CUDA kernel to apply an entry-wise unary operator. */
-template <typename UnaryOperator, typename TensorDataType>
+template <template <typename> class UnaryOperator, typename TensorDataType>
 __global__
 void entrywise_unary_operator_kernel(El::Int height, El::Int width,
                                      const TensorDataType* __restrict__ input,
@@ -258,7 +258,7 @@ void entrywise_unary_operator_kernel(El::Int height, El::Int width,
   const El::Int gid = threadIdx.x + blockIdx.x * blockDim.x;
   const El::Int size = height * width;
   const El::Int num_threads = blockDim.x * gridDim.x;
-  UnaryOperator op;
+  UnaryOperator<TensorDataType> op;
   for (El::Int pos = gid; pos < size; pos += num_threads) {
     const auto& row = pos % height;
     const auto& col = pos / height;
@@ -269,7 +269,7 @@ void entrywise_unary_operator_kernel(El::Int height, El::Int width,
 }
 
 /** CUDA kernel to apply an entry-wise binary operator. */
-template <typename BinaryOperator, typename TensorDataType>
+template <template <typename> class BinaryOperator, typename TensorDataType>
 __global__
 void entrywise_binary_operator_kernel(El::Int height, El::Int width,
                                      const TensorDataType* __restrict__ input1,
@@ -281,7 +281,7 @@ void entrywise_binary_operator_kernel(El::Int height, El::Int width,
   const El::Int gid = threadIdx.x + blockIdx.x * blockDim.x;
   const El::Int size = height * width;
   const El::Int num_threads = blockDim.x * gridDim.x;
-  BinaryOperator op;
+  BinaryOperator<TensorDataType> op;
   for (El::Int pos = gid; pos < size; pos += num_threads) {
     const auto& row = pos % height;
     const auto& col = pos / height;
@@ -296,11 +296,10 @@ void entrywise_binary_operator_kernel(El::Int height, El::Int width,
  *  The input and output data must be on GPU and must have the same
  *  dimensions.
  */
-template <template <typename> class Op, typename TensorDataType>
+template <template <typename> class UnaryOp, typename TensorDataType>
 void apply_entrywise_unary_operator(
   const El::AbstractMatrix<TensorDataType>& input,
   El::AbstractMatrix<TensorDataType>& output) {
-  using UnaryOperator = Op<TensorDataType>;
 
   // Check that input and output are valid
   if (input.GetDevice() != El::Device::GPU) {
@@ -330,7 +329,7 @@ void apply_entrywise_unary_operator(
   // Launch CUDA kernel
   if (grid_dim > 0) {
     CHECK_CUDA(cudaSetDevice(El::GPUManager::Device()));
-    entrywise_unary_operator_kernel<UnaryOperator>
+    entrywise_unary_operator_kernel<UnaryOp>
       <<<grid_dim, block_dim, 0, El::GPUManager::Stream()>>>(
         height, width, input.LockedBuffer(), input.LDim(),
         output.Buffer(), output.LDim());
@@ -342,12 +341,11 @@ void apply_entrywise_unary_operator(
  *  The input and output data must be on GPU and must have the same
  *  dimensions.
  */
-template <template <typename> class Op, typename TensorDataType>
+template <template <typename> class BinaryOp, typename TensorDataType>
 void apply_entrywise_binary_operator(
   const El::AbstractMatrix<TensorDataType>& input1,
   const El::AbstractMatrix<TensorDataType>& input2,
   El::AbstractMatrix<TensorDataType>& output) {
-  using BinaryOperator = Op<TensorDataType>;
 
   // Check that input and output are valid
   if (input1.GetDevice() != El::Device::GPU
@@ -381,7 +379,7 @@ void apply_entrywise_binary_operator(
   // Launch CUDA kernel
   if (grid_dim > 0) {
     CHECK_CUDA(cudaSetDevice(El::GPUManager::Device()));
-    entrywise_binary_operator_kernel<BinaryOperator>
+    entrywise_binary_operator_kernel<BinaryOp>
       <<<grid_dim, block_dim, 0, El::GPUManager::Stream()>>>(
         height, width,
         input1.LockedBuffer(), input1.LDim(),

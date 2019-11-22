@@ -281,8 +281,8 @@ void fp_compute_impl(softmax_layer<TensorDataType, data_layout::DATA_PARALLEL, E
                                     l.m_tensors_cudnn_desc.get_activations(),
                                     local_output.Buffer()));
 #ifdef LBANN_ENABLE_SOFTMAX_THRESHOLD
-    cuda::apply_entrywise_unary_operator<TensorDataType, threshold_op<TensorDataType>>(local_output,
-                                                                                       local_output);
+    cuda::apply_entrywise_unary_operator<threshold_op>(local_output,
+                                                       local_output);
 #endif // LBANN_ENABLE_SOFTMAX_THRESHOLD
   }
 }
@@ -446,11 +446,11 @@ void bp_compute_impl(softmax_layer<TensorDataType, data_layout::MODEL_PARALLEL, 
 
 template <typename TensorDataType, data_layout Layout, El::Device Device>
 void softmax_layer<TensorDataType, Layout, Device>::fp_compute() {
-  fp_compute_impl<TensorDataType>(*this);
+  fp_compute_impl(*this);
 }
 template <typename TensorDataType, data_layout Layout, El::Device Device>
 void softmax_layer<TensorDataType, Layout, Device>::bp_compute() {
-  bp_compute_impl<TensorDataType>(*this);
+  bp_compute_impl(*this);
 }
 
 // Template instantiation
