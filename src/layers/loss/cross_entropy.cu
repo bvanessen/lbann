@@ -33,7 +33,7 @@ namespace lbann {
 
 namespace {
 
-  template <typename TensorDataType, int block_size>
+template <int block_size, typename TensorDataType>
 __global__ void fp_kernel(int height, int width,
                           const TensorDataType* __restrict__ prediction,
                           int prediction_ldim,
@@ -92,7 +92,7 @@ void local_fp_gpu(const El::AbstractMatrix<TensorDataType>& local_prediction,
     grid_dims.x = (height + block_size - 1) / block_size;
     grid_dims.y = width;
     CHECK_CUDA(cudaSetDevice(El::GPUManager::Device()));
-    fp_kernel<TensorDataType, block_size>
+    fp_kernel<block_size>
       <<<grid_dims, block_dims, 0, El::GPUManager::Stream()>>>(
         height, width,
         local_prediction.LockedBuffer(), local_prediction.LDim(),
@@ -101,7 +101,7 @@ void local_fp_gpu(const El::AbstractMatrix<TensorDataType>& local_prediction,
   }
 }
 
-template <typename TensorDataType, int block_size>
+template <int block_size, typename TensorDataType>
 __global__ void bp_kernel(int height, int width,
                           const TensorDataType* __restrict__ prediction,
                           int prediction_ldim,
@@ -148,7 +148,7 @@ void local_bp_gpu(const El::AbstractMatrix<TensorDataType>& local_prediction,
     grid_dims.x = (height + block_size - 1) / block_size;
     grid_dims.y = width;
     CHECK_CUDA(cudaSetDevice(El::GPUManager::Device()));
-    bp_kernel<TensorDataType, block_size>
+    bp_kernel<block_size>
       <<<grid_dims, block_dims, 0, El::GPUManager::Stream()>>>(
         height, width,
         local_prediction.LockedBuffer(), local_prediction.LDim(),
