@@ -37,8 +37,8 @@
 
 namespace lbann {
 
-template <typename TensorDataType>
-void fp_compute_impl(sort_layer<TensorDataType, data_layout::DATA_PARALLEL, El::Device::GPU>& l) {
+template <typename TensorDataType, data_layout T_layout, El::Device Dev>
+void sort_layer<TensorDataType, T_layout, Dev>::fp_compute() {
 
   // Local matrices
   const auto& local_input = l.get_local_prev_activations();
@@ -54,25 +54,25 @@ void fp_compute_impl(sort_layer<TensorDataType, data_layout::DATA_PARALLEL, El::
   // Sort each matrix column
   El::Copy(local_input, local_output);
   for (El::Int col = 0; col < local_width; ++col) {
-    ::thrust::device_ptr<DataType> vals(local_output.Buffer(0, col));
+    ::thrust::device_ptr<TensorDataType> vals(local_output.Buffer(0, col));
     ::thrust::device_ptr<El::Int> inds(local_indices.Buffer(0, col));
     ::thrust::sequence(thrust::cuda::par(alloc).on(stream),
                        inds, inds + local_height);
     if (l.m_descending) {
       ::thrust::sort_by_key(thrust::cuda::par(alloc).on(stream),
                             vals, vals + local_height, inds,
-                            ::thrust::greater<DataType>());
+                            ::thrust::greater<TensorDataType>());
     } else {
       ::thrust::sort_by_key(thrust::cuda::par(alloc).on(stream),
                             vals, vals + local_height, inds,
-                            ::thrust::less<DataType>());
+                            ::thrust::less<TensorDataType>());
     }
   }
 
 }
 
-template <typename TensorDataType>
-void bp_compute_impl(sort_layer<TensorDataType, data_layout::DATA_PARALLEL, El::Device::GPU>& l) {
+template <typename TensorDataType, data_layout T_layout, El::Device Dev>
+void sort_layer<TensorDataType, T_layout, Dev>::bp_compute() {
 
   // Local matrices
   const auto& local_gradient_wrt_output = l.get_local_prev_error_signals();
@@ -89,23 +89,12 @@ void bp_compute_impl(sort_layer<TensorDataType, data_layout::DATA_PARALLEL, El::
   for (El::Int col = 0; col < local_width; ++col) {
     const ::thrust::device_ptr<const El::Int> inds(l.m_indices->LockedBuffer(0, col));
     const ::thrust::device_ptr<const TensorDataType> grad_wrt_out(local_gradient_wrt_output.LockedBuffer(0, col));
-    ::thrust::device_ptr<DataType> grad_wrt_in(local_gradient_wrt_input.Buffer(0, col));
+    ::thrust::device_ptr<TensorDataType> grad_wrt_in(local_gradient_wrt_input.Buffer(0, col));
     ::thrust::scatter(thrust::cuda::par(alloc).on(stream),
                       grad_wrt_out, grad_wrt_out + local_height, inds,
                       grad_wrt_in);
   }
 
-}
-
-
-template <typename TensorDataType, data_layout T_layout, El::Device Dev>
-void sort_layer<TensorDataType, T_layout, Dev>::fp_compute() {
-  fp_compute_impl<TensorDataType>(*this);
-}
-
-template <typename TensorDataType, data_layout T_layout, El::Device Dev>
-void sort_layer<TensorDataType, T_layout, Dev>::bp_compute() {
-  bp_compute_impl<TensorDataType>(*this);
 }
 
 template class sort_layer<DataType, data_layout::DATA_PARALLEL, El::Device::GPU>;
