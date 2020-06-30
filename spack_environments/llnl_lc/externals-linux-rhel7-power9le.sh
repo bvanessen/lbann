@@ -23,13 +23,14 @@ EXTERNAL_PACKAGES=$(cat <<EOF
 
     cuda::
       buildable: False
-      version: [10.1.243]
+      version: [10.1.243, 10.2.89]
       modules:
         cuda@10.1.243 arch=linux-rhel7-power9le: cuda/10.1.243
+        cuda@10.2.89 arch=linux-rhel7-power9le: cuda/10.2.89
 
     cudnn::
       buildable: true
-      version: [7.6.5.32-10.1-linux-ppc64le]
+      version: [8.0.0.180-10.2-linux-ppc64le]
 
     gcc::
        buildable: False
