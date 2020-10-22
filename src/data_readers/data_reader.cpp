@@ -87,20 +87,20 @@ void generic_data_reader::setup(int num_io_threads, observer_ptr<thread_pool> io
   m_io_thread_pool = io_thread_pool;
 }
 
-int lbann::generic_data_reader::fetch(std::map<input_data_type, CPUMat*>& input_buffers, El::Matrix<El::Int>& indices_fetched) {
+int lbann::generic_data_reader::fetch(std::map<input_data_type, CPUMat*>& input_buffers, El::Matrix<El::Int>& indices_fetched, size_t mb_size) {
   // Fetch sample
   auto buf = input_buffers[input_data_type::SAMPLES];
   if(buf == nullptr || buf->Height() == 0 || buf->Width() == 0) {
     LBANN_ERROR("fetch function called with invalid buffer: h=", buf->Height(), " x ", buf->Width());
   }
-  int num_samples_fetched = fetch_data(*(buf), indices_fetched);
+  int num_samples_fetched = fetch_data(*(buf), indices_fetched, mb_size);
   // Fetch label is applicable
   buf = input_buffers[input_data_type::LABELS];
   if(has_labels() && buf != nullptr && buf->Height() != 0 && buf->Width() != 0) {
     if(input_buffers[input_data_type::LABELS] == nullptr) {
       LBANN_ERROR("LABELS is not defined");
     }
-    int num_labels_fetched = fetch_labels(*(input_buffers[input_data_type::LABELS]));
+    int num_labels_fetched = fetch_labels(*(input_buffers[input_data_type::LABELS]), mb_size);
     if(num_labels_fetched != num_samples_fetched) {
       LBANN_ERROR("Number of samples: ",
                   std::to_string(num_samples_fetched),
@@ -111,7 +111,7 @@ int lbann::generic_data_reader::fetch(std::map<input_data_type, CPUMat*>& input_
   // Fetch response is applicable
   buf = input_buffers[input_data_type::RESPONSES];
   if(has_responses() && buf != nullptr && buf->Height() != 0 && buf->Width() != 0) {
-    int num_responses_fetched = fetch_responses(*(input_buffers[input_data_type::RESPONSES]));
+    int num_responses_fetched = fetch_responses(*(input_buffers[input_data_type::RESPONSES]), mb_size);
     if(num_responses_fetched != num_samples_fetched) {
       LBANN_ERROR("Number of samples: ",
                   std::to_string(num_samples_fetched),
@@ -138,7 +138,7 @@ bool lbann::generic_data_reader::fetch_data_block(CPUMat& X, El::Int block_offse
   return true;
 }
 
-int lbann::generic_data_reader::fetch_data(CPUMat& X, El::Matrix<El::Int>& indices_fetched) {
+int lbann::generic_data_reader::fetch_data(CPUMat& X, El::Matrix<El::Int>& indices_fetched, size_t mb_size) {
   #ifdef DEBUG
   if (m_current_pos == 0) {
     if (is_master()) {
@@ -153,10 +153,6 @@ int lbann::generic_data_reader::fetch_data(CPUMat& X, El::Matrix<El::Int>& indic
   #endif
 
   int loaded_batch_size = get_loaded_mini_batch_size();
-
-  const int end_pos = std::min(static_cast<size_t>(m_current_pos+loaded_batch_size), m_shuffled_indices.size());
-  const int mb_size = std::min(El::Int{((end_pos - m_current_pos) + m_sample_stride - 1) / m_sample_stride},
-      X.Width());
 
   El::Zeros_seq(X, X.Height(), X.Width());
   El::Zeros_seq(indices_fetched, mb_size, 1);
@@ -248,14 +244,7 @@ void lbann::generic_data_reader::set_jag_variables(int mb_size) {
   m_world_master_mini_batch_adjustment = 0;
 }
 
-int lbann::generic_data_reader::fetch_labels(CPUMat& Y) {
-  int loaded_batch_size = get_loaded_mini_batch_size();
-  const int end_pos = std::min(static_cast<size_t>(m_current_pos+loaded_batch_size),
-                               m_shuffled_indices.size());
-  const int mb_size = std::min(
-    El::Int{((end_pos - m_current_pos) + m_sample_stride - 1) / m_sample_stride},
-    Y.Width());
-
+int lbann::generic_data_reader::fetch_labels(CPUMat& Y, size_t mb_size) {
   El::Zeros_seq(Y, Y.Height(), Y.Width());
 
   if(!position_valid()) {
@@ -269,7 +258,7 @@ int lbann::generic_data_reader::fetch_labels(CPUMat& Y) {
   }
 
   std::string error_message;
-  for (int s = 0; s < mb_size; s++) {
+  for (size_t s = 0; s < mb_size; s++) {
     int n = m_current_pos + (s * m_sample_stride);
     int index = m_shuffled_indices[n];
     bool valid = fetch_label(Y, index, s);
@@ -282,14 +271,7 @@ int lbann::generic_data_reader::fetch_labels(CPUMat& Y) {
   return mb_size;
 }
 
-int lbann::generic_data_reader::fetch_responses(CPUMat& Y) {
-  int loaded_batch_size = get_loaded_mini_batch_size();
-  const int end_pos = std::min(static_cast<size_t>(m_current_pos+loaded_batch_size),
-                               m_shuffled_indices.size());
-  const int mb_size = std::min(
-    El::Int{((end_pos - m_current_pos) + m_sample_stride - 1) / m_sample_stride},
-    Y.Width());
-
+int lbann::generic_data_reader::fetch_responses(CPUMat& Y, size_t mb_size) {
   El::Zeros_seq(Y, Y.Height(), Y.Width());
 
   if(!position_valid()) {
@@ -303,7 +285,7 @@ int lbann::generic_data_reader::fetch_responses(CPUMat& Y) {
   }
 
   std::string error_message;
-  for (int s = 0; s < mb_size; s++) {
+  for (size_t s = 0; s < mb_size; s++) {
     int n = m_current_pos + (s * m_sample_stride);
     int index = m_shuffled_indices[n];
     bool valid = fetch_response(Y, index, s);

@@ -296,13 +296,13 @@ class generic_data_reader {
   virtual std::string get_type() const = 0;
 
   /** @brief Fetch a mini-batch worth of data, including samples, labels, responses (as appropriate) */
-  int fetch(std::map<input_data_type, CPUMat*>& input_buffers, El::Matrix<El::Int>& indices_fetched);
+  int fetch(std::map<input_data_type, CPUMat*>& input_buffers, El::Matrix<El::Int>& indices_fetched, size_t mb_size);
   /// Fetch this mini-batch's samples into X.
-  virtual int fetch_data(CPUMat& X, El::Matrix<El::Int>& indices_fetched);
+  virtual int fetch_data(CPUMat& X, El::Matrix<El::Int>& indices_fetched, size_t mb_size);
   /// Fetch this mini-batch's labels into Y.
-  virtual int fetch_labels(CPUMat& Y);
+  virtual int fetch_labels(CPUMat& Y, size_t mb_size);
   /// Fetch this mini-batch's responses into Y.
-  virtual int fetch_responses(CPUMat& Y);
+  virtual int fetch_responses(CPUMat& Y, size_t mb_size);
 
   virtual bool has_labels() const { return m_supported_input_types.at(input_data_type::LABELS); }
   virtual bool has_responses() const { return m_supported_input_types.at(input_data_type::RESPONSES); }
@@ -765,6 +765,7 @@ class generic_data_reader {
   /// Shuffle indices and profide a random number generator
   virtual void shuffle_indices(rng_gen& gen);
 
+public:
   int m_mini_batch_size;
   int m_current_pos;
   /// Batch Stride is typically batch_size, but may be a multiple of batch size if there are multiple readers

@@ -1445,22 +1445,22 @@ int data_reader_jag_conduit::reuse_labels(CPUMat& Y) {
   return m_cached_label_mb_size;
 }
 
-int data_reader_jag_conduit::fetch_data(CPUMat& X, El::Matrix<El::Int>& indices_fetched) {
-  m_cached_data_mb_size = generic_data_reader::fetch_data(X, indices_fetched);
+int data_reader_jag_conduit::fetch_data(CPUMat& X, El::Matrix<El::Int>& indices_fetched, size_t mb_size) {
+  m_cached_data_mb_size = generic_data_reader::fetch_data(X, indices_fetched, mb_size);
   El::Copy(X, m_data_cache);
 
   return m_cached_data_mb_size;
 }
 
-int data_reader_jag_conduit::fetch_responses(CPUMat& Y) {
-  m_cached_response_mb_size = generic_data_reader::fetch_responses(Y);
+int data_reader_jag_conduit::fetch_responses(CPUMat& Y, size_t mb_size) {
+  m_cached_response_mb_size = generic_data_reader::fetch_responses(Y, mb_size);
   El::Copy(Y, m_response_cache);
 
   return m_cached_response_mb_size;
 }
 
-int data_reader_jag_conduit::fetch_labels(CPUMat& Y) {
-  m_cached_label_mb_size = generic_data_reader::fetch_labels(Y);
+int data_reader_jag_conduit::fetch_labels(CPUMat& Y, size_t mb_size) {
+  m_cached_label_mb_size = generic_data_reader::fetch_labels(Y, mb_size);
   El::Copy(Y, m_label_cache);
 
   return m_cached_label_mb_size;
