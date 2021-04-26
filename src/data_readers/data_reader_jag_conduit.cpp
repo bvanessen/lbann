@@ -794,9 +794,6 @@ void data_reader_jag_conduit::do_preload_data_store() {
   conduit::Node work;
   const std::string key; // key = "" is intentional
 
-  /// @todo BVE FIXME this
-  m_rank_in_model = get_comm()->get_rank_in_trainer();
-
   options *opts = options::get();
   double tm1 = get_time();
   if (get_comm()->am_world_master() ||
@@ -806,7 +803,7 @@ void data_reader_jag_conduit::do_preload_data_store() {
 
   for (size_t idx=0; idx < m_shuffled_indices.size(); idx++) {
     int index = m_shuffled_indices[idx];
-    if(m_data_store->get_index_owner(index) != m_rank_in_model) {
+    if(m_data_store->get_index_owner(index) != get_comm()->get_rank_in_trainer()) {
       continue;
     }
     try {
@@ -831,7 +828,7 @@ void data_reader_jag_conduit::do_preload_data_store() {
   /// Once all of the data has been preloaded, close all of the file handles
   for (size_t idx=0; idx < m_shuffled_indices.size(); idx++) {
     int index = m_shuffled_indices[idx];
-    if(m_data_store->get_index_owner(index) != m_rank_in_model) {
+    if(m_data_store->get_index_owner(index) != get_comm()->get_rank_in_trainer()) {
       continue;
     }
     m_sample_list.close_if_done_samples_file_handle(index);

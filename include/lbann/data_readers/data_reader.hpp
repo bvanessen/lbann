@@ -87,7 +87,7 @@ class generic_data_reader {
     m_num_iterations_per_epoch(0), m_global_mini_batch_size(0),
     m_global_last_mini_batch_size(0),
     m_world_master_mini_batch_adjustment(0),
-    m_num_parallel_readers(0), m_rank_in_model(0),
+    m_num_parallel_readers(0),
     m_max_files_to_load(0),
     m_file_dir(""), m_data_sample_list(""), m_data_fn(""), m_label_fn(""),
     m_shuffle(shuffle), m_absolute_sample_count(0),
@@ -555,16 +555,6 @@ class generic_data_reader {
     return  m_current_mini_batch_idx;
   }
 
-  /// Allow the reader to know where it is in the model hierarchy
-  virtual void set_rank(int rank) {
-    m_rank_in_model = rank;
-  }
-
-  /// Allow the reader to know where it is in the model hierarchy
-  int get_rank() const {
-    return m_rank_in_model;
-  }
-
   /**
    * Optionally resizes the shuffled indices based on the data reader
    * prototext settings: absolute_sample_count, percent_of_data_to_use.
@@ -778,7 +768,6 @@ public:
 
   int m_num_parallel_readers; /// How many parallel readers are being used
 
-  int m_rank_in_model;  /// What is the rank of the data reader within a given model
   size_t m_max_files_to_load;
   std::string m_file_dir;
   std::string m_local_file_dir;
