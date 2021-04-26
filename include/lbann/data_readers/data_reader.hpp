@@ -92,7 +92,6 @@ class generic_data_reader {
     m_file_dir(""), m_data_sample_list(""), m_data_fn(""), m_label_fn(""),
     m_shuffle(shuffle), m_absolute_sample_count(0),
     m_use_percent(1.0),
-    m_master(false),
     m_gan_labelling(false), //default, not GAN
     m_gan_label_value(0),  //If GAN, default for fake label, discriminator model
     m_io_thread_pool(nullptr),
@@ -118,7 +117,6 @@ class generic_data_reader {
   /// set the comm object
   void set_comm(lbann_comm *comm) {
     m_comm = comm;
-    set_master(comm->am_world_master());
   }
 
   /// returns a (possibly nullptr) to comm
@@ -557,16 +555,6 @@ class generic_data_reader {
     return  m_current_mini_batch_idx;
   }
 
-  /// only the master may write to cerr or cout; primarily for use in debugging during development
-  virtual void set_master(bool m) {
-    m_master = m;
-  }
-
-  /// only the master may write to cerr or cout; primarily for use in debugging during development
-  bool is_master() const {
-    return m_master;
-  }
-
   /// Allow the reader to know where it is in the model hierarchy
   virtual void set_rank(int rank) {
     m_rank_in_model = rank;
@@ -803,8 +791,6 @@ public:
   double m_use_percent;
   int m_first_n;
   std::string m_role;
-
-  bool m_master;
 
   /** @brief Print the return values from various get_X methods to file
    *

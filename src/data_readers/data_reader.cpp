@@ -141,7 +141,7 @@ bool lbann::generic_data_reader::fetch_data_block(CPUMat& X, El::Int block_offse
 int lbann::generic_data_reader::fetch_data(CPUMat& X, El::Matrix<El::Int>& indices_fetched, size_t mb_size) {
   #ifdef DEBUG
   if (m_current_pos == 0) {
-    if (is_master()) {
+    if (get_comm()->am_world_master()) {
       std::cout << "role: " << get_role() << " model: " << m_trainer->get_name()
                 << " shuffled indices: ";
       for (size_t j=0; j<15; j++) {
@@ -638,7 +638,7 @@ void generic_data_reader::instantiate_data_store() {
     return;
   }
 
-  if (is_master()) {
+  if (get_comm()->am_world_master()) {
     std::cout << "\nUSING DATA_STORE\n\n";
   }
   m_data_store = new data_store_conduit(this);  // *data_store_conduit
@@ -757,7 +757,7 @@ void generic_data_reader::preload_data_store() {
 }
 
 void generic_data_reader::print_get_methods(const std::string filename) {
-  if (!is_master()) {
+  if (!get_comm()->am_world_master()) {
     return;
   }
   std::ofstream out(filename.c_str());
