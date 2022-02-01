@@ -4,7 +4,7 @@ Operators are atomic tensor operations supported by LBANN.
 
 """
 
-from __future__ import annotations
+#from __future__ import annotations
 
 from lbann import operators_pb2 as OpProto
 from lbann import DataType, DeviceAllocation

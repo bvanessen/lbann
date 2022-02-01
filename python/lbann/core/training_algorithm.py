@@ -15,7 +15,7 @@ LBANN library (or downstream libraries using the LBANN infrastructure).
 
 """
 
-from __future__ import annotations
+#from __future__ import annotations
 
 from lbann import training_algorithm_pb2 as AlgoProto
 from lbann.util import make_iterable
@@ -188,8 +188,8 @@ class LTFB(TrainingAlgorithm):
 
 class MutationStrategy:
     """The strategy for mutation after a tournament in LTFB.
-       
-       When a trainer loses in a LTFB tournament, the winning model is 
+
+       When a trainer loses in a LTFB tournament, the winning model is
        copied over to it and this mutation strategy is applied to the
        copied model to explore a new model. This is relevant to neural
        architecture search (NAS).
@@ -287,7 +287,7 @@ class RandomPairwiseExchange(MetaLearningStrategy):
         """
 
         def __init__(self, strategy: str = "checkpoint_binary",
-                     weights_names: list[str] = [],
+                     weights_names: list = [],
                      exchange_hyperparameters: bool = False,
                      checkpoint_dir: str = None):
             """Construct a new exchange strategy.
@@ -329,7 +329,7 @@ class RandomPairwiseExchange(MetaLearningStrategy):
             return msg
 
     def __init__(self,
-                 metric_strategies: dict[str,int] = {},
+                 metric_strategies: dict = {},
                  exchange_strategy = ExchangeStrategy(),
                  mutation_strategy = MutationStrategy()):
         """Construct a new RandomPairwiseExchange metalearning strategy.
@@ -362,11 +362,11 @@ class RandomPairwiseExchange(MetaLearningStrategy):
 class TruncationSelectionExchange(MetaLearningStrategy):
     """Truncation selection  metalearning strategy.
 
-    Rank all trainers in a population of trainers 
+    Rank all trainers in a population of trainers
     Ranking is done using specified metric strategy
-    Models/topologies/training hyperparameters of any 
-    trainer at ranking below truncation_k are replaced 
-    with that of a trainer from top of the ranking list. 
+    Models/topologies/training hyperparameters of any
+    trainer at ranking below truncation_k are replaced
+    with that of a trainer from top of the ranking list.
 
     """
 
@@ -377,7 +377,7 @@ class TruncationSelectionExchange(MetaLearningStrategy):
 
 
     def __init__(self,
-                 metric_strategies: dict[str,int] = {},
+                 metric_strategies: dict = {},
                  truncation_k = 0):
         """Construct a new TruncationSelectionExchange metalearning strategy.
 
@@ -417,7 +417,7 @@ class RegularizedEvolution(MetaLearningStrategy):
                  metric_strategy,
                  mutation_strategy = MutationStrategy(),
                  sample_size = 0):
-        
+
         self.metric_name = metric_name
         self.metric_strategy = metric_strategy
         self.mutation_strategy = mutation_strategy
@@ -432,7 +432,7 @@ class RegularizedEvolution(MetaLearningStrategy):
         msg.metric_strategy = self.metric_strategy
         msg.mutation_strategy.CopyFrom(self.mutation_strategy.export_proto())
         msg.sample_size = self.sample_size
-        return msg 
+        return msg
 
 class KFAC(TrainingAlgorithm):
     """Kronecker-Factored Approximate Curvature algorithm.

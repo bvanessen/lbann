@@ -4,7 +4,7 @@ This is for backward-compatibility with the current PFE. My guess/hope
 is that these will be removed when the PFE attains version 1.0.
 """
 
-from __future__ import annotations
+#from __future__ import annotations
 
 import inspect
 
