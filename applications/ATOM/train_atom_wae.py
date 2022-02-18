@@ -129,6 +129,15 @@ def construct_data_reader(run_args):
     data_reader.python.num_samples_function = "num_samples"
     data_reader.python.sample_dims_function = "sample_dims"
 
+    ### @todo Remove
+    # data_reader = message.reader.add()
+    # data_reader.name = "synthetic"
+    # data_reader.role = "train"
+    # data_reader.num_samples = 12800
+    # data_reader.synth_dimensions = '57'
+    # data_reader.percent_of_data_to_use = 1.0
+    # data_reader.tournament_percent = 0.2
+
     return message
 
 
@@ -190,9 +199,10 @@ def main():
     else:
         work_dir = os.path.join(os.getcwd())
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    experiment_dir = os.path.join(
-        work_dir, "{}_{}".format(timestamp, run_args.job_name)
-    )
+    experiment_dir = work_dir ### @todo Remove
+    # experiment_dir = os.path.join(
+    #     work_dir, "{}_{}".format(timestamp, run_args.job_name)
+    # )
     if not os.path.exists(experiment_dir):
         os.makedirs(experiment_dir)
 
@@ -220,9 +230,9 @@ def main():
     # dump the config to the experiment_dir so that it can be used to load the model in pytorch (moses codebase)
     ppn = 4 if run_args.scheduler == "lsf" else 2
     print("args:\n" + str(run_args))
-    if(run_args.scheduler == 'slurm'):
-      import torch
-      torch.save(run_args, "{}/{}_config.pt".format(experiment_dir, run_args.job_name))
+    # if(run_args.scheduler == 'slurm'):
+    #   import torch
+    #   torch.save(run_args, "{}/{}_config.pt".format(experiment_dir, run_args.job_name))
 
     m_lbann_args=f"--vocab={run_args.vocab} --data_filedir={run_args.data_filedir} --data_filename_train={run_args.data_filename} --sequence_length={run_args.sequence_length}  --num_io_threads={run_args.num_io_threads}"
     if(run_args.data_reader_prototext):
@@ -252,6 +262,7 @@ def main():
             'LBANN_USE_CUBLAS_TENSOR_OPS' : 1,
             'LBANN_USE_CUDNN_TENSOR_OPS' : 1,
         },
+        setup_only=True,
     )
 
     print("LBANN launcher status:\n" + str(status))
