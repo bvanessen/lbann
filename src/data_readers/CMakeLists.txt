@@ -39,6 +39,7 @@ set_full_path(THIS_DIR_SOURCES
   data_reader_synthetic.cpp
   data_reader_python.cpp
   data_reader_smiles.cpp
+  data_reader_tokenized_sequence.cpp
   data_reader_HDF5.cpp
   )
 

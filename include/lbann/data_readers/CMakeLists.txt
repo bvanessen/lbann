@@ -41,6 +41,7 @@ set_full_path(THIS_DIR_HEADERS
   data_reader_smiles.hpp
   data_reader_sample_list.hpp
   data_reader_sample_list_impl.hpp
+  data_reader_tokenized_sequence.hpp
   )
 
 if (LBANN_HAS_CNPY)
