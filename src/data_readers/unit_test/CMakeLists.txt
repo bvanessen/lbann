@@ -25,6 +25,7 @@
 ################################################################################
 set_full_path(THIS_DIR_SEQ_CATCH2_TEST_FILES
   data_reader_smiles_test.cpp
+  data_reader_tokenized_sequence_test.cpp
   data_reader_HDF5_hrrl_data_test.cpp
   data_reader_synthetic_test.cpp
   )
