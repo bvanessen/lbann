@@ -32,6 +32,12 @@
 #include "lbann/data_readers/sample_list_ifstream.hpp"
 
 namespace lbann {
+#define PAD_TOKEN "<pad>"
+#define UNK_TOKEN "<unk>"
+
+enum class special_tokens {pad, unk, bos, eos};
+  //enum class special_tokens {<pad>, <unk>, <bos>, <eos>};
+
   /**
    * Data reader for TOKENIZED_SEQUENCE (string) data. The string data is converted to
    * a vector of shorts according to an arbitrary mapping.
@@ -46,6 +52,7 @@ public:
   // Types for mapping a sample id to an <offset,length> locator
   using offset_t = std::pair<long long, unsigned short>;
   using offset_map_t = std::unordered_map<size_t, offset_t>;
+  using token_space_t = unsigned long;
 
   tokenized_sequence_data_reader(const bool shuffle);
   tokenized_sequence_data_reader(const tokenized_sequence_data_reader&);
@@ -155,15 +162,16 @@ private:
   int m_num_labels = 0;
 
   // these may be changed when the vocab file is read
-  short m_pad = 420;
-  short m_unk = 421;
-  short m_bos = 422;
-  short m_eos = 423;
+  token_space_t m_pad = 420;
+  token_space_t m_unk = 421;
+  token_space_t m_bos = 422;
+  token_space_t m_eos = 423;
 
   std::string m_metadata_filename;
 
-  std::unordered_map<char, short> m_vocab;
-  std::unordered_map<short,std::string> m_vocab_inv;
+  //  std::unord
+  std::unordered_map<std::string, token_space_t> m_vocab;
+  std::unordered_map<token_space_t, std::string> m_vocab_inv;
 
   std::mutex m_mutex;
 

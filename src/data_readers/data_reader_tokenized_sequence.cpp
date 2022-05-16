@@ -353,12 +353,12 @@ void tokenized_sequence_data_reader::load_vocab(std::string fn) {
 void tokenized_sequence_data_reader::load_vocab(std::stringstream &in) {
   // TODO: trainer master should read and bcast
   std::string token;
-  short id;
+  token_space_t id;
   int sanity = 4;
   while (in >> token >> id) {
     if (token.size() == 1) {
-      m_vocab[token[0]] = id;
-      m_vocab_inv[id] = token[0];
+      m_vocab[token] = id;
+      m_vocab_inv[id] = token;
     }
     if (token == "<pad>") {
       m_pad = id;
