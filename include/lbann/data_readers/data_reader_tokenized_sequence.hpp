@@ -31,11 +31,18 @@
 #include "lbann/data_readers/data_reader_sample_list.hpp"
 #include "lbann/data_readers/sample_list_ifstream.hpp"
 
-namespace lbann {
-#define PAD_TOKEN "<pad>"
-#define UNK_TOKEN "<unk>"
+#include <regex>
 
-enum class special_tokens {pad, unk, bos, eos};
+namespace lbann {
+// #define PAD_TOKEN "<pad>"
+// #define UNK_TOKEN "<unk>"
+// #define BOS_TOKEN "<bos>"
+// #define EOS_TOKEN "<eos>"
+
+enum class special_tokens {PAD, UNK, BOS, EOS};
+std::string to_string(special_tokens const& t);
+using special_tokens_iterator = enum_iterator<special_tokens, special_tokens::PAD, special_tokens::EOS>;
+
   //enum class special_tokens {<pad>, <unk>, <bos>, <eos>};
 
   /**
@@ -95,17 +102,17 @@ public:
   std::set<int> get_my_indices() const;
 
   /** This method made public for use during testing.
-   *  Convert TOKENIZED_SEQUENCE string to a vector of shorts
+   *  Convert TOKENIZED_SEQUENCE string to a vector of token_space_t
    */
-  bool encode_tokenized_sequence(const char *tokenized_sequence, unsigned short size, std::vector<unsigned short> &data);
+  bool encode_tokenized_sequence(std::stringstream&tokenized_sequence, std::vector<token_space_t> &data);
   /** This method made public for use during testing.
-   *  Convert TOKENIZED_SEQUENCE string to a vector of shorts
+   *  Convert TOKENIZED_SEQUENCE string to a vector of token_space_t
    */
-  bool encode_tokenized_sequence(const std::string &tokenized_sequence, std::vector<unsigned short> &data);
+  bool encode_tokenized_sequence(const std::string &tokenized_sequence, std::vector<token_space_t> &data);
   /** This method made public for use during testing.
-   *  Decode TOKENIZED_SEQUENCE string from a vector of shorts
+   *  Decode TOKENIZED_SEQUENCE string from a vector of token_space_t
    */
-  void decode_tokenized_sequence(const std::vector<unsigned short> &data, std::string &out);
+  void decode_tokenized_sequence(const std::vector<token_space_t> &data, std::string &out);
 
   /** This method made public for use during testing. */
   void load_vocab(std::string filename);
@@ -156,16 +163,18 @@ private:
     unsigned short length;
   };
 
-  int m_linearized_data_size = 0;
+  size_t m_linearized_data_size = 0;
   int m_linearized_label_size = 0;
   int m_linearized_response_size = 0;
   int m_num_labels = 0;
 
+  std::regex special_token = std::regex("[,:)(.?!\"\'/]");
+
   // these may be changed when the vocab file is read
-  token_space_t m_pad = 420;
-  token_space_t m_unk = 421;
-  token_space_t m_bos = 422;
-  token_space_t m_eos = 423;
+  // token_space_t m_pad = 420;
+  // token_space_t m_unk = 421;
+  // token_space_t m_bos = 422;
+  // token_space_t m_eos = 423;
 
   std::string m_metadata_filename;
 
@@ -175,8 +184,8 @@ private:
 
   std::mutex m_mutex;
 
-  size_t m_missing_char_in_vocab_count = 0;
-  std::unordered_set<char> m_missing_chars;
+  size_t m_missing_tokens_in_vocab_count = 0;
+  std::unordered_set<std::string> m_missing_tokens;
 
   // maps: sample id -> offset within a file
   offset_map_t m_sample_offsets;
@@ -226,7 +235,7 @@ private:
   void construct_conduit_node(conduit::Node &node, std::istream* istream, size_t sample_id, size_t buf_offset=0);
 
   // calls get_raw_sample; returns in 'output' an encoded version of the sample
-  void load_sample(std::istream* istrm, size_t index, std::vector<unsigned short> &output, size_t buf_offset=0);
+  void load_sample(std::istream* istrm, size_t index, std::vector<token_space_t> &output, size_t buf_offset=0);
 
   void build_some_maps();
 
@@ -239,6 +248,10 @@ private:
   bool is_delimiter(const char c) {
     return (isspace(c) || c == '\n' || c == '\t' || c == ',');
   }
+
+  void check_and_add_token_if_found(const std::string& token,
+                                    std::vector<token_space_t>& data,
+                                    bool& found_all_tokens_in_vocab);
 };
 
 }  // namespace lbann

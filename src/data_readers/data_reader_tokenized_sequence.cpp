@@ -25,6 +25,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 
+#include "lbann/base.hpp"
 #include "lbann/comm_impl.hpp"
 #include "lbann/data_readers/data_reader_sample_list_impl.hpp"
 #include "lbann/data_readers/data_reader_tokenized_sequence.hpp"
@@ -41,8 +42,24 @@
 #include <mutex>
 #include <cctype>
 #include <random>
+#include <regex>
 
 namespace lbann {
+
+auto to_string(special_tokens const& t) -> std::string
+{
+  switch (t) {
+  case special_tokens::PAD:
+    return "<pad>";
+  case special_tokens::UNK:
+    return "<unk>";
+  case special_tokens::BOS:
+    return "<bos>";
+  case special_tokens::EOS:
+    return "<eos>";
+  }
+  return "invalid special_token";
+}
 
 tokenized_sequence_data_reader::tokenized_sequence_data_reader(const bool shuffle)
   : data_reader_sample_list(shuffle) {}
@@ -75,13 +92,13 @@ void tokenized_sequence_data_reader::copy_members(const tokenized_sequence_data_
   m_linearized_label_size = rhs.m_linearized_label_size;
   m_linearized_response_size = rhs.m_linearized_response_size;
   m_num_labels = rhs.m_num_labels;
-  m_pad = rhs.m_pad;
-  m_unk = rhs.m_unk;
-  m_bos = rhs.m_bos;
-  m_eos = rhs.m_eos;
+  // m_pad = rhs.m_pad;
+  // m_unk = rhs.m_unk;
+  // m_bos = rhs.m_bos;
+  // m_eos = rhs.m_eos;
   m_metadata_filename = rhs.m_metadata_filename;
-  m_missing_char_in_vocab_count = rhs.m_missing_char_in_vocab_count;
-  m_missing_chars = rhs.m_missing_chars;
+  m_missing_tokens_in_vocab_count = rhs.m_missing_tokens_in_vocab_count;
+  m_missing_tokens = rhs.m_missing_tokens;
   m_vocab = rhs.m_vocab;
   m_vocab_inv = rhs.m_vocab_inv;
 
@@ -295,7 +312,7 @@ bool tokenized_sequence_data_reader::fetch_datum(Mat& X, int data_id, int mb_idx
     X(j, mb_idx) = data[j];
   }
   for (; j<static_cast<size_t>(m_linearized_data_size); j++) {
-    X(j, mb_idx) = m_pad;
+    X(j, mb_idx) = m_vocab[to_string(special_tokens::PAD)];
   }
   return true;
 }
@@ -323,11 +340,11 @@ void tokenized_sequence_data_reader::print_statistics() const {
   std::cerr << "num samples per trainer: " << utils::commify(m_shuffled_indices.size()) << std::endl;
   std::cerr << "max sequence length: " << utils::commify(m_linearized_data_size) << std::endl;
   std::cerr << "num features=" << utils::commify(m_linearized_data_size) << std::endl;
-  std::cerr << "pad index: " << m_pad << std::endl;
+  std::cerr << "pad index: " << m_vocab.at(to_string(special_tokens::PAD)) << std::endl;
 
-  if (m_missing_chars.size()) {
+  if (m_missing_tokens.size()) {
     std::cerr << std::endl << "The following tokens were in TOKENIZED_SEQUENCE strings, but were missing from the vocabulary: ";
-    for (const auto t : m_missing_chars) {
+    for (const auto& t : m_missing_tokens) {
       std::cerr << t << " ";
     }
     std::cerr << std::endl;
@@ -353,43 +370,88 @@ void tokenized_sequence_data_reader::load_vocab(std::string fn) {
 void tokenized_sequence_data_reader::load_vocab(std::stringstream &in) {
   // TODO: trainer master should read and bcast
   std::string token;
-  token_space_t id;
-  int sanity = 4;
-  while (in >> token >> id) {
-    if (token.size() == 1) {
-      m_vocab[token] = id;
-      m_vocab_inv[id] = token;
+  token_space_t id = 0;
+  //  int sanity = 4;
+  while (in >> token) {
+    // if (token.size() == 1) {
+    if(m_vocab.find(token) != m_vocab.end()) {
+      LBANN_ERROR("Unexpected duplicate token ", token, " found");
     }
-    if (token == "<pad>") {
-      m_pad = id;
-      --sanity;
-    }
-    if (token == "<unk>") {
-      m_unk = id;
-      --sanity;
-    }
-    if (token == "<bos>") {
-      m_bos = id;
-      --sanity;
-    }
-    if (token == "<eos>") {
-      m_eos = id;
-      --sanity;
-    }
+    m_vocab[token] = id;
+    m_vocab_inv[id] = token;
+    id++;
+    // }
+    // if (token == "<pad>") {
+    //   m_pad = id;
+    //   --sanity;
+    // }
+    // if (token == "<unk>") {
+    //   m_unk = id;
+    //   --sanity;
+    // }
+    // if (token == "<bos>") {
+    //   m_bos = id;
+    //   --sanity;
+    // }
+    // if (token == "<eos>") {
+    //   m_eos = id;
+    //   --sanity;
+    // }
   }
-  if (sanity) {
-    LBANN_ERROR("failed to find <pad> and/or <unk> and/or <bos> and/or <eos> in vocab input stream");
+  for(auto t : special_tokens_iterator()) {
+    token = to_string(t);
+    if(m_vocab.find(token) != m_vocab.end()) {
+      LBANN_ERROR("Unexpected duplicate special token ", token, " found");
+    }
+    m_vocab[token] = id;
+    m_vocab_inv[id] = token;
+    id++;
   }
+  for(auto [s,e] : m_vocab) {
+    std::cout << "Here is what I have for the vocab["<<s<<"]="<<e<<std::endl;
+  }
+  // if (m_vocab[PAD_TOKEN]token == "<pad>") {
+  //   m_pad = id;
+  //     --sanity;
+  //   }
+  //   if (token == "<unk>") {
+  //     m_unk = id;
+  //     --sanity;
+  //   }
+  //   if (token == "<bos>") {
+  //     m_bos = id;
+  //     --sanity;
+  //   }
+  //   if (token == "<eos>") {
+  //     m_eos = id;
+  //     --sanity;
+  //   }
+
+  // if (sanity) {
+  //   LBANN_ERROR("failed to find <pad> and/or <unk> and/or <bos> and/or <eos> in vocab input stream");
+  // }
+  LBANN_MSG("Loaded ", id, " unique tokens");
+  return;
 }
 
-bool tokenized_sequence_data_reader::encode_tokenized_sequence(const std::string &tokenized_sequence, std::vector<unsigned short> &data) {
-  return encode_tokenized_sequence(tokenized_sequence.data(), tokenized_sequence.size(), data);
+bool tokenized_sequence_data_reader::encode_tokenized_sequence(const std::string &tokenized_sequence, std::vector<token_space_t> &data) {
+  std::stringstream s(tokenized_sequence);
+  // std::string line;
+  // while(std::getline(s, line)) {
+  //   std::cout << "I have found a line " << line << std::endl;
+  // }
+  return encode_tokenized_sequence(s, data);
 }
 
-bool tokenized_sequence_data_reader::encode_tokenized_sequence(const char *tokenized_sequence, unsigned short size, std::vector<unsigned short> &data) {
-  static int count = 0;
-  bool found_all_characters_in_vocab = true;
+namespace {
 
+}
+
+bool tokenized_sequence_data_reader::encode_tokenized_sequence(std::stringstream& tokenized_sequence, std::vector<token_space_t> &data) {
+  static size_t count = 0;
+  bool found_all_tokens_in_vocab = true;
+
+#if 0
   int stop = size;
   if (stop+2 > m_linearized_data_size) { //+2 is for <bos> and <eos>
     stop = m_linearized_data_size-2;
@@ -398,41 +460,81 @@ bool tokenized_sequence_data_reader::encode_tokenized_sequence(const char *token
       LBANN_WARNING("tokenized_sequence string size is ", size, "; losing ", (size-(m_linearized_data_size-2)), " characters; m_sequence_length: ", m_linearized_data_size);
     }
   }
+#endif
 
   data.clear();
-  data.reserve(stop+2);
-  data.push_back(m_bos);
-  for (int j=0; j<stop; j++) {
-    const char &w = tokenized_sequence[j];
-    if (m_vocab.find(w) == m_vocab.end()) {
-      found_all_characters_in_vocab = false;
-      {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        m_missing_chars.insert(w);
-        ++m_missing_char_in_vocab_count;
-        if (m_verbose && m_missing_char_in_vocab_count < 20 && m_comm != nullptr) {
-          std::stringstream ss;
-          ss << "world rank: " << m_comm->get_rank_in_world() << "; character not in vocab >>" << w << "<<; idx: " << j << "; string length: " << size << "; will use length: " << stop << "; vocab size: " << m_vocab.size() << std::endl;
-          std::cerr << ss.str();
-        }
+  //  data.reserve(stop+2);
+  data.push_back(m_vocab[to_string(special_tokens::BOS)]);
+  std::string token;
+  while (tokenized_sequence >> token) {
+    //  for (int j=0; j<stop; j++) {
+    //    const char &w = tokenized_sequence[j];
+    ++count;
+    if (count >= m_linearized_data_size-2) { //+2 is for <bos> and <eos>
+      //      stop = m_linearized_data_size-2;
+      if (m_verbose/* && count < 20*/) {
+        //        LBANN_WARNING("tokenized_sequence string size is ", size, "; losing ", (size-(m_linearized_data_size-2)), " characters; m_sequence_length: ", m_linearized_data_size);
       }
-      data.push_back(m_unk);
-    } else {
-      data.push_back(m_vocab[w]);
+      continue;
+    }
+
+    std::string possible_leading_token, possible_trailing_token;
+    std::string leading_token = "", trailing_token = "";
+#if 1
+    std::regex special_xml_char = std::regex("(.*)(&[a-zA-Z]+;)(.*)");
+    std::smatch match;
+    const std::string foo = token;
+    if (std::regex_search(foo.begin(), foo.end(), match, special_xml_char)) {
+      std::cout << "I have found match 1="<< match[1] << "< followed by 2=" << match[2] << "< and 3=" << match[3] << "<" << std::endl;
+      leading_token = match[1];
+      token = match[2];
+      trailing_token = match[3];
+    }
+
+#else
+    possible_leading_token = token.front();
+    if (std::regex_match(possible_trailing_token, special_token)
+        && m_vocab.find(possible_leading_token) != m_vocab.end()) {
+      token.erase(token.begin()+1);
+      leading_token = possible_leading_token;
+      LBANN_MSG("I have found a leading token ", leading_token, " and now token is ", token);
+    }
+    possible_trailing_token = token.back();
+    std::cout << "I am checking for the possibility of a  trailing token " << possible_trailing_token << " on token " << token
+              << std::endl;
+    if (std::regex_match(possible_trailing_token, special_token)
+        && m_vocab.find(possible_trailing_token) != m_vocab.end()) {
+      token.pop_back();
+      trailing_token = possible_trailing_token;
+      std::cout << "I have found a trailing token " << trailing_token
+                << " and now token is " << token << std::endl;
+    }
+#endif
+
+    if(leading_token != "") {
+      check_and_add_token_if_found(leading_token, data, found_all_tokens_in_vocab);
+    }
+    check_and_add_token_if_found(token, data, found_all_tokens_in_vocab);
+    if(trailing_token != "") {
+      check_and_add_token_if_found(trailing_token, data, found_all_tokens_in_vocab);
     }
   }
-  data.push_back(m_eos);
+  data.push_back(m_vocab[to_string(special_tokens::EOS)]);
 
   while (data.size() < static_cast<size_t>(m_linearized_data_size)) {
-    data.push_back(m_pad);
+    data.push_back(m_vocab[to_string(special_tokens::PAD)]);
   }
-  return found_all_characters_in_vocab;
+  return found_all_tokens_in_vocab;
 }
 
-void tokenized_sequence_data_reader::decode_tokenized_sequence(const std::vector<unsigned short> &data, std::string &out) {
+void tokenized_sequence_data_reader::decode_tokenized_sequence(const std::vector<token_space_t> &data, std::string &out) {
   std::stringstream s;
   for (const auto &t : data) {
-    if (!(t == m_eos || t == m_bos || t == m_pad || t == m_unk)) {
+    std::cout << "I am planing on decoding " << t << " which maps to " << m_vocab_inv.at(t) << std::endl;
+    if (!(t == m_vocab[to_string(special_tokens::EOS)] ||
+          t == m_vocab[to_string(special_tokens::BOS)] ||
+          t == m_vocab[to_string(special_tokens::PAD)] ||
+          t == m_vocab[to_string(special_tokens::UNK)])) {
       if (m_vocab_inv.find(t) == m_vocab_inv.end()) {
         std::stringstream s2;
         s2 <<"failed to find: " << t <<" in inv_map; here is the data: ";
@@ -448,10 +550,27 @@ void tokenized_sequence_data_reader::decode_tokenized_sequence(const std::vector
       }
     }
     const std::string &x = m_vocab_inv[t];
-    if (x == "<unk>") {
-      s << "<unk>";
-    } else if (!(x == "<bos>" || x == "<eos>" || x == "<pad>")) {
+    // if (x == "<unk>") {
+    //   s << "<unk>";
+    // } else
+    if (!(x == to_string(special_tokens::EOS) ||
+          x == to_string(special_tokens::BOS) ||
+          x == to_string(special_tokens::PAD))) {
+    // if (!(x == "<bos>" || x == "<eos>" || x == "<pad>")) {
+      // std::string last_char;
+      // last_char = s.str().back();
+      std::cout << "Checking last char is " << s.str() << std::endl;
+      if((!std::regex_match(x, special_token) &&
+          (!s.str().empty())) ||
+         std::regex_match(x, special_xml_token) &&
+         (!s.str().empty())) {
+        std::cout << "Last character is good ->" << s.str() << "<-" << std::endl;
+        s << " ";
+      }
       s << m_vocab_inv[t];
+      // if(!std::regex_match(x, special_token)) {
+      //   s << " ";
+      // }
     }
   }
   out = s.str();
@@ -477,12 +596,12 @@ void tokenized_sequence_data_reader::load_offsets_and_lengths() {
 }
 
 void tokenized_sequence_data_reader::construct_conduit_node(conduit::Node &node, std::istream* istrm, size_t index, size_t buf_offset) {
-  std::vector<unsigned short> sample;
+  std::vector<token_space_t> sample;
   load_sample(istrm, index, sample, buf_offset);
   node[LBANN_DATA_ID_STR(index) + "/data"] = sample;
 }
 
-void tokenized_sequence_data_reader::load_sample(std::istream* istrm, size_t index, std::vector<unsigned short> &output, size_t buf_offset) {
+void tokenized_sequence_data_reader::load_sample(std::istream* istrm, size_t index, std::vector<token_space_t> &output, size_t buf_offset) {
   const std::string tokenized_sequence_str = get_raw_sample(istrm, index, buf_offset);
   encode_tokenized_sequence(tokenized_sequence_str, output);
 }
@@ -499,6 +618,9 @@ std::string tokenized_sequence_data_reader::get_raw_sample(std::istream* istrm, 
   // check that string is at beginning of line
   if (start) {
     istrm->seekg(offset-buf_offset-1);
+    // std::string line;
+    // std::getline(infile, line);
+#if 0
     char c;
     istrm->read((char*)&c, sizeof(char));
     if (c != '\n') {
@@ -513,6 +635,7 @@ std::string tokenized_sequence_data_reader::get_raw_sample(std::istream* istrm, 
       }
       LBANN_ERROR(s.str());
     }
+#endif
   } else {
     istrm->seekg(offset-buf_offset);
   }
@@ -740,6 +863,26 @@ void tokenized_sequence_data_reader::get_sample_origin(
 
 void tokenized_sequence_data_reader::set_offset(size_t index, long long offset, unsigned short length) {
   m_sample_offsets[index] = std::make_pair(offset, length);
+}
+
+void tokenized_sequence_data_reader::check_and_add_token_if_found(const std::string& token, std::vector<token_space_t>& data, bool& found_all_tokens_in_vocab) {
+  if (m_vocab.find(token) == m_vocab.end()) {
+    found_all_tokens_in_vocab = false;
+    {
+      std::lock_guard<std::mutex> lock(m_mutex);
+      m_missing_tokens.insert(token);
+      ++m_missing_tokens_in_vocab_count;
+      if (m_verbose && m_missing_tokens_in_vocab_count < 20 && m_comm != nullptr) {
+        std::stringstream ss;
+          //          ss << "world rank: " << m_comm->get_rank_in_world() << "; character not in vocab >>" << w << "<<; idx: " << j << "; string length: " << size << "; will use length: " << stop << "; vocab size: " << m_vocab.size() << std::endl;
+        std::cerr << ss.str();
+      }
+    }
+    data.push_back(m_vocab[to_string(special_tokens::UNK)]);
+  } else {
+    std::cout << "I have found token "<<  token<< std::endl;
+    data.push_back(m_vocab[token]);
+  }
 }
 
 }  // namespace lbann

@@ -46,12 +46,18 @@ TEST_CASE("TOKENIZED_SEQUENCE string encoder", "[data_reader][tokenized_sequence
   const int data_size_small(5);
 
   //  std::stringstream vocab("# 0 % 1 ( 2 ) 3 + 4 - 5 . 6 / 7 0 8 1 9 2 10 3 11 4 12 5 13 6 14 7 15 8 16 9 17 = 18 @ 19 B 20 C 21 F 22 H 23 I 24 N 25 O 26 P 27 S 28 [ 29 \\ 30 ] 31 c 32 e 33 i 34 l 35 n 36 o 37 p 38 r 39 s 40 <bos> 41 <eos> 42 <pad> 43 <unk> 44");
-  std::stringstream vocab("Prague 0 Stock 1 Market 2 falls 3 to 4 minus 5 by 6 the 7 end 8 of 9 trading 11 day 12 After 13 a14 sharp 15 drop 16 in 17 morning 18, corrected 19 its 20 losses 21 <bos> 41 <eos> 42 <pad> 43 <unk> 44");
+  std::stringstream vocab("Prague Stock Market falls to minus by the end of trading day After a sharp drop in morning corrected its losses I m rather novice politics responded Lukas Kaucky Councilor for culture test Godfather vocabulary , . ( ) : \" ' &quot; &apos;");
 
   auto tokenized_sequence = std::make_unique<lbann::tokenized_sequence_data_reader>(true);
   tokenized_sequence->load_vocab(vocab);
 
-  const std::string wm("Prague Stock Market falls to minus by the end of the trading day\nAfter a sharp drop in the morning, the Prague Stock Market corrected its losses.");
+  const std::string wm("Prague Stock Market falls to minus by the end of the trading day");
+  //  const std::string wm("Prague Stock Market falls to minus by the end of the trading day\nAfter a sharp drop in the morning, the Prague Stock Market corrected its losses.");
+
+  // Example string from newstest2011.en
+  const std::string wm2("\"I'm rather a novice in Prague politics,\" responded Lukas Kaucky, the Councilor for culture, to the test of \"Godfather\" vocabulary.");
+  // Example string from newstest2011.tok.en line 7
+  const std::string wm3("&quot; I &apos;m rather a novice in Prague politics , &quot; responded Lukas Kaucky , the Councilor for culture , to the test of &quot; Godfather &quot; vocabulary .");
     // const std::string smi_1("C#CCCNC1=NN(C)C=C1"); // good
   // const std::string smi_2("C#CCCNC1 NN(C)C=C1"); // space in middle
   // const std::string smi_3(" CC(C(=O)NN)C1=CC="); // space at beginning
@@ -61,13 +67,38 @@ TEST_CASE("TOKENIZED_SEQUENCE string encoder", "[data_reader][tokenized_sequence
   {
     tokenized_sequence->set_linearized_data_size(data_size_normal);
 
-    std::vector<unsigned short> encoded;
+    std::vector<unsigned long> encoded;
     std::string decoded;
 
     bool r1 = tokenized_sequence->encode_tokenized_sequence(wm, encoded);
     CHECK(r1);
     tokenized_sequence->decode_tokenized_sequence(encoded, decoded);
+    std::cout << "Here is the decoded string >>" << decoded << "<<<" << std::endl;
+
+    // for(auto d : decoded) {
+    //   std::cout << d << std::endl;
+    // }
     CHECK(wm == decoded);
+
+    bool r2 = tokenized_sequence->encode_tokenized_sequence(wm2, encoded);
+    CHECK(r2);
+    tokenized_sequence->decode_tokenized_sequence(encoded, decoded);
+    std::cout << "Here is the decoded string >>" << decoded << "<<<" << std::endl;
+
+    // for(auto d : decoded) {
+    //   std::cout << d << std::endl;
+    // }
+    CHECK(wm2 == decoded);
+
+    bool r3 = tokenized_sequence->encode_tokenized_sequence(wm3, encoded);
+    CHECK(r3);
+    tokenized_sequence->decode_tokenized_sequence(encoded, decoded);
+    std::cout << "Here is the decoded string >>" << decoded << "<<<" << std::endl;
+
+    // for(auto d : decoded) {
+    //   std::cout << d << std::endl;
+    // }
+    CHECK(wm3 == decoded);
 
     // bool r2 = tokenized_sequence->encode_tokenized_sequence(smi_2, encoded);
     // CHECK( !r2 );
@@ -113,6 +144,7 @@ TEST_CASE("TOKENIZED_SEQUENCE string encoder", "[data_reader][tokenized_sequence
 #endif
 }
 
+#if 0
 TEST_CASE("TOKENIZED_SEQUENCE istream reader", "[data_reader][tokenized_sequence]")
 {
   auto tokenized_sequence = std::make_unique<lbann::tokenized_sequence_data_reader>(true);
@@ -206,3 +238,4 @@ CC(=O)N[C@@H]1[C@@H](O)C[C@@](O)(C(=O)N2CC (=O)NCC2C(N)=O)O[C@H]1[C@H](O)[C@H](O
     CHECK(str == tokenized_sequence_str.substr(line_len+1, sample_two_valid_chars));
   }
 }
+#endif
