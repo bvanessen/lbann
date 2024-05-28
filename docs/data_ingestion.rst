@@ -63,3 +63,95 @@ this information:
    governed by the data readers and then is cached in both the model
    as well as the current execution context.  Note that it is not
    clear if the execution contexts should hold this data anymore.
+
+
+"Really New" Data Subsystem
+---------------------------
+
+During execution LBANN will ingest one or more streams of data.  There
+will be unique streams of data for each execution mode:
+ - training
+ - validation
+ - tournament
+ - testing
+ - inference
+
+Note that execution modes should become more flexible and should be
+able to be arbitrarily named.
+
+The data stream object is responsible for keeping track of the "count"
+/ state of that data stream for that execution context.  For bounded /
+batched data streams, this would be the current position within the
+stream and the total number of passes over the stream. (index and
+epoch)
+
+For infinite streams the object will just maintain the index /
+position within the stream.
+
+In both cases it is necessary for the object to track the "step" size
+(i.e. mini-batch size).  Additionally, because the data stream will be
+accessed in parallel, it is necessary to track the position of each
+rank within the stream in terms of offset.
+
+..
+   Data source class file:  The data source class tracks the statefule
+   aspects of one logical stream of data.
+   Data sources are either bounded or infinite
+   data sources.  The class is responsible for keeping track of state
+   with respect to
+
+Sample list:
+
+Track how to retrive a data set from the outside world.  This
+typically is a set of file locations for each sample as well as a
+count of how many samples are in the set.
+
+Data coordinator:
+
+Responsible for managing one or more data streams for each execution
+context.  It is
+
+
+data reader / loader:
+
+Function to ingest bits from outside and place them into an in-memory
+object that is managed by the data coordinator.
+
+Data store:
+in-memory data repository for holding samples that have been read in
+
+io_data_buffer:
+Holds sample being fetched or the future of it.
+
+data packer:
+copies data fields from conduit nodes and maps them to Hydrogen
+matrices.  Specific to a data set
+
+Data Set:
+The dataset class currently holds the number of samples processed, the
+total number of samples as well as the mini-batch size, current
+position, etc.  I don't like how this is working right now.
+
+What if we switch it so that a data set describes the actual data set:
+how many samples, is it bounded, what data is in it?
+
+Then there is one data stream per role and it tracks how far into the
+stream / what the mini-batch size is, etc.  Why is the mini-batch size
+a function of hte data stream.  It should just be the total position.
+
+The mini-batch size is a property of the learning algorithm /
+execution algorithm - it should propose a mini-batch size and then get
+back the actual mini-batch size from the data stream.
+
+The SGB execution context should contain both the mini-batch size.
+
+We need an object like the data stream to be able to request new
+sample sequences farther in the future than one step.  Essentially the
+stream should be "stateless" about generating indices until they are
+consuemed.  Kind of like a future.
+
+Composed of:
+ - data reader
+ - data stream
+ - sample list
+ - data packer
